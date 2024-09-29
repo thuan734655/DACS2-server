@@ -96,6 +96,64 @@ app.post("/login", (req, res) => {
   });
 });
 
+// API Sign-Up
+app.post("/signup", (req, res) => {
+  const {email, password,day,month,year,fullName,gender } = req.body;
+
+  // Check if all fields are filled
+  if (!fullName || !email || !password || !day || !month || !year || !gender) {
+    
+    return res.status(400).json({ message: "Please fill in all fields" });
+  }
+
+  //parse birth
+  const birthStr = day + "-" + month + "-" + year;
+  const birthDate = new Date(birthStr);
+
+  // Check if the email already exists
+  const queryCheckEmail = "SELECT * FROM account WHERE email = ?";
+  connectDB.query(queryCheckEmail, [email], (err, result) => {
+    if (err) throw err;
+
+    if (result.length > 0) {
+      return res.status(409).json({ message: "Email already exists" }); // 409 Conflict
+    }
+
+    // Hash the password
+    bcrypt.hash(password, 10, (err, hash) => {
+      if (err) throw err;
+
+      // Insert account into the database
+      const queryInsert = "INSERT INTO account (email, password) VALUES (?, ?)";
+      connectDB.query(queryInsert, [email, hash], (err, result) => {
+        if (err) throw err;
+        //add info table user
+        const userProfileQuery =
+          "INSERT INTO user (fullName, gender, birthday ,idUser) VALUES (?,?,?, LAST_INSERT_ID())";
+        connectDB.query(userProfileQuery, [fullName,gender,birthDate], (err, result) => {
+          if (err) {
+            console.error("Error inserting into user table:", err);
+
+            //delete data account if add user is fail
+            const queryDeleteAccount =
+              "DELETE FROM `account` WHERE idUser = LAST_INSERT_ID()";
+            connectDB.query(queryDeleteAccount, (err) => {
+              if (err) {
+                console.log("Delete account failed:", err);
+              }
+            });
+            return res
+              .status(500)
+              .json({ message: "Error creating user profile." });
+          }
+
+          res.json({ message: "User signed up successfully!" });
+        });
+      });
+    });
+  });
+});
+
 // Khởi động server
 app.listen(port, () => {
   console.log(`Server is listening on http://localhost:${port}`);
