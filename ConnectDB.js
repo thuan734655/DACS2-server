@@ -80,6 +80,18 @@ app.post("/login", (req, res) => {
         ip = "127.0.0.1"; // Chuyển đổi IPv6 sang IPv4
       }
       console.log("Địa chỉ IP:", ip);
+      
+      if (!user.is2FAEnable) {
+        const updateIpQuery = "UPDATE account SET is2FAEnable = ? WHERE idUser = ?"; 
+        connectDB.query(updateIpQuery, [ip, user.id], (err) => {
+          if (err) {
+            console.error("Error updating IP:", err);
+          } else {
+            console.log("Updated IP:", ip);
+          }
+        });
+      }
+     
 
       // Trả về thông tin và token
       res.json({
