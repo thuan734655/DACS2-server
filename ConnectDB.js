@@ -6,6 +6,7 @@ const mysql = require("mysql");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const bodyParser = require("body-parser");
+const e = require("express");
 
 // Middleware
 app.use(
@@ -45,77 +46,86 @@ app.get("/", (req, res) => {
 });
 
 // API đăng nhập
-app.post("/login", (req, res) => {
-  // Lấy email và password từ request body
-  const { email, password } = req.body;
-  console.log("Email:", email);
-  console.log("Password:", password);
+app.post("/login", async (req, res) => { 
+  const { email, password, ip } = req.body;
+  let is2FA = false;
 
   if (!email || !password) {
-    return res.status(400).json({ message: "Please enter the password again" });
+    return res
+      .status(400)
+      .json({ message: "Please enter your email and password." });
   }
 
   const query = "SELECT * FROM account WHERE email = ?";
-  connectDB.query(query, [email], (err, result) => {
-    if (err) throw err;
+  connectDB.query(query, [email], async (err, result) => {
+    if (err) {
+      console.error("Database query error:", err);
+      return res.status(500).json({ message: "Internal server error." });
+    }
+
     if (result.length === 0) {
-      return res.status(404).json({ message: "Email error" });
+      return res.status(404).json({ message: "Email not found." });
     }
 
     const user = result[0];
 
-    // So sánh mật khẩu
-    bcrypt.compare(password, user.password, (err, isMatch) => {
-      if (err) throw err;
+    bcrypt.compare(password, user.password, async (err, isMatch) => {
+      if (err) {
+        console.error("Error comparing passwords:", err);
+        return res.status(500).json({ message: "Internal server error." });
+      }
       if (!isMatch) {
-        return res.status(401).json({ message: "Password error" });
-        
+        return res.status(401).json({ message: "Incorrect password." });
       }
 
       // Tạo JWT
-      const token = jwt.sign({ id: user.id }, secrecKey, { expiresIn: "1h" });
-
-      // Lấy địa chỉ IP và chuyển đổi nếu cần
-      let ip = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-      if (ip === "::1") {
-        ip = "127.0.0.1"; // Chuyển đổi IPv6 sang IPv4
-      }
-      console.log("IP address:", ip);
-      
-      if (!user.is2FAEnable) {
-        const updateIpQuery = "UPDATE account SET is2FAEnable = ? WHERE idUser = ?"; 
-        connectDB.query(updateIpQuery, [ip, user.id], (err) => {
-          if (err) {
-            console.error("Error updating IP:", err);
-          } else {
-            console.log("Updated IP:", ip);
-          }
-        });
-      }
-     
-
-      // Trả về thông tin và token
-      res.json({
-        message: "Login successful!",
-        token,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-        },
-        ip: ip,
+      const token = jwt.sign({ id: user.idUser }, secrecKey, {
+        expiresIn: "1h",
       });
+
+      try {
+        if (user.is2FAEnable) {
+          if (ip !== user.is2FAEnable) {
+            is2FA = true;
+          } else {
+            console.log(ip, user.is2FAEnable);
+          }
+        } else {
+          const updateIpQuery =
+            "UPDATE account SET is2FAEnable = ? WHERE idUser = ?";
+          connectDB.query(updateIpQuery, [ip, user.idUser], (err) => {
+            if (err) {
+              console.error("Error updating IP:", err);
+            } else {
+              console.log("Updated IP:", ip);
+            }
+          });
+        }
+
+        res.json({
+          message: "Login successful!",
+          token,
+          user: {
+            id: user.idUser,
+            email: user.email,
+          },
+          ip: ip,
+          is2FA: is2FA
+        });
+      } catch (error) {
+        console.error("Error fetching IP:", error);
+        return res.status(500).json({ message: "Unable to fetch IP address." });
+      }
     });
   });
 });
 
 // API Sign-Up
 app.post("/signup", (req, res) => {
-  const {email, password,day,month,year,fullName,gender } = req.body;
+  const { email, password, day, month, year, fullName, gender } = req.body;
 
   // Check if all fields are filled
   if (!fullName || !email || !password || !day || !month || !year || !gender) {
-    
     return res.status(400).json({ message: "Please fill in all fields" });
   }
 
@@ -143,25 +153,29 @@ app.post("/signup", (req, res) => {
         //add info table user
         const userProfileQuery =
           "INSERT INTO user (fullName, gender, birthday ,idUser) VALUES (?,?,?, LAST_INSERT_ID())";
-        connectDB.query(userProfileQuery, [fullName,gender,birthDate], (err, result) => {
-          if (err) {
-            console.error("Error inserting into user table:", err);
+        connectDB.query(
+          userProfileQuery,
+          [fullName, gender, birthDate],
+          (err, result) => {
+            if (err) {
+              console.error("Error inserting into user table:", err);
 
-            //delete data account if add user is fail
-            const queryDeleteAccount =
-              "DELETE FROM `account` WHERE idUser = LAST_INSERT_ID()";
-            connectDB.query(queryDeleteAccount, (err) => {
-              if (err) {
-                console.log("Delete account failed:", err);
-              }
-            });
-            return res
-              .status(500)
-              .json({ message: "Error creating user profile." });
+              //delete data account if add user is fail
+              const queryDeleteAccount =
+                "DELETE FROM `account` WHERE idUser = LAST_INSERT_ID()";
+              connectDB.query(queryDeleteAccount, (err) => {
+                if (err) {
+                  console.log("Delete account failed:", err);
+                }
+              });
+              return res
+                .status(500)
+                .json({ message: "Error creating user profile." });
+            }
+
+            res.json({ message: "User signed up successfully!" });
           }
-
-          res.json({ message: "User signed up successfully!" });
-        });
+        );
       });
     });
   });
