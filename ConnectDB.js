@@ -52,14 +52,14 @@ app.post("/login", (req, res) => {
   console.log("Password:", password);
 
   if (!email || !password) {
-    return res.status(400).json({ message: "Vui lòng nhập email và mật khẩu" });
+    return res.status(400).json({ message: "Please enter the password again" });
   }
 
   const query = "SELECT * FROM account WHERE email = ?";
   connectDB.query(query, [email], (err, result) => {
     if (err) throw err;
     if (result.length === 0) {
-      return res.status(404).json({ message: "Email không hợp lệ" });
+      return res.status(404).json({ message: "Email error" });
     }
 
     const user = result[0];
@@ -68,7 +68,8 @@ app.post("/login", (req, res) => {
     bcrypt.compare(password, user.password, (err, isMatch) => {
       if (err) throw err;
       if (!isMatch) {
-        return res.status(401).json({ message: "Mật khẩu không chính xác" });
+        return res.status(401).json({ message: "Password error" });
+        
       }
 
       // Tạo JWT
@@ -79,7 +80,7 @@ app.post("/login", (req, res) => {
       if (ip === "::1") {
         ip = "127.0.0.1"; // Chuyển đổi IPv6 sang IPv4
       }
-      console.log("Địa chỉ IP:", ip);
+      console.log("IP address:", ip);
       
       if (!user.is2FAEnable) {
         const updateIpQuery = "UPDATE account SET is2FAEnable = ? WHERE idUser = ?"; 
@@ -95,7 +96,7 @@ app.post("/login", (req, res) => {
 
       // Trả về thông tin và token
       res.json({
-        message: "Đăng nhập thành công!",
+        message: "Login successful!",
         token,
         user: {
           id: user.id,
