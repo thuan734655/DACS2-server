@@ -12,12 +12,13 @@
   "name": "dacs2-server",
   "version": "1.0.0",
   "description": "",
-  "main": "ConnectDB.js",
+  "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon ConnectDB start"
+    "start": "nodemon server start"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "type": "module"
 }
