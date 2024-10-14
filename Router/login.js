@@ -3,14 +3,17 @@ import bodyParser from "body-parser";
 import connectDB from "../ConnectDB.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import handleEmail from "../services/sendEmail.js";
+import sendOTP from "../services/sendOTP.js";
 
 const routerLogin = express.Router();
 
 routerLogin.use(bodyParser.json());
-const secrecKey =
-  "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.VFb0qJ1LRg_4ujbZoRMXnVkUgiuKq5KxWqNdbKq_G9Vvz-S1zZa9LPxtHWKa64zDl2ofkT8F6jBt_K4riU-fPg"; // Thay thế với secret key của bạn
 
-// API đăng nhập
+// Replace with your actual secret key
+const secrecKey = "your-secret-key";
+
+// Login API
 routerLogin.post("/login", async (req, res) => {
   const { email, password, ip } = req.body;
   let is2FA = false;
@@ -43,15 +46,29 @@ routerLogin.post("/login", async (req, res) => {
         return res.status(401).json({ message: "Incorrect password." });
       }
 
-      // Tạo JWT
+      // Generate JWT
       const token = jwt.sign({ id: user.idUser }, secrecKey, {
         expiresIn: "1h",
       });
 
       try {
-        if (!user.infoDevice) {
+        if (user.infoDevice) {
           if (ip !== user.infoDevice) {
+            const otp = sendOTP(email);
+            const updateOTP = async () => {
+              try {
+                connectDB.query("UPDATE account SET otp = ? WHERE email = ?", [
+                  otp,
+                  email,
+                ]);
+                console.log("update otp 2FA ok");
+              } catch (error) {
+                return res.status(500).json({ message: "Can't update OTP" });
+              }
+            };
+            updateOTP();
             is2FA = true;
+            console.log(is2FA);
           } else {
             console.log(ip, user.infoDevice);
           }
@@ -67,16 +84,27 @@ routerLogin.post("/login", async (req, res) => {
           });
         }
 
-        res.json({
-          message: "Login successful!",
-          token,
-          user: {
-            id: user.idUser,
-            email: user.email,
-          },
-          ip: ip,
-          is2FA: is2FA,
-        });
+        console.log(is2FA);
+        // Respond with token only if 2FA is not required
+        if (!is2FA) {
+          const token = jwt.sign({ id: user.idUser }, secrecKey, {
+            expiresIn: "1h",
+          });
+          return res.json({
+            message: "Login successful!",
+            token,
+            user: {
+              id: user.idUser,
+              email: user.email,
+            },
+          });
+        } else {
+          // Respond to client indicating that 2FA is required
+          return res.json({
+            message: "Two-factor authentication is required.",
+            is2FA: true,
+          });
+        }
       } catch (error) {
         console.error("Error fetching IP:", error);
         return res.status(500).json({ message: "Unable to fetch IP address." });
@@ -85,7 +113,7 @@ routerLogin.post("/login", async (req, res) => {
   });
 });
 
-// API Sign-Up
+// Sign-Up API
 routerLogin.post("/signup", (req, res) => {
   const { email, password, day, month, year, fullName, gender } = req.body;
 
@@ -94,7 +122,7 @@ routerLogin.post("/signup", (req, res) => {
     return res.status(400).json({ message: "Please fill in all fields" });
   }
 
-  //parse birth
+  // Parse birth date
   const birthStr = day + "-" + month + "-" + year;
   const birthDate = new Date(birthStr);
 
@@ -115,7 +143,7 @@ routerLogin.post("/signup", (req, res) => {
       const queryInsert = "INSERT INTO account (email, password) VALUES (?, ?)";
       connectDB.query(queryInsert, [email, hash], (err, result) => {
         if (err) throw err;
-        //add info table user
+        // Add info to the user table
         const userProfileQuery =
           "INSERT INTO user (fullName, gender, birthday ,idUser) VALUES (?,?,?, LAST_INSERT_ID())";
         connectDB.query(
@@ -125,7 +153,7 @@ routerLogin.post("/signup", (req, res) => {
             if (err) {
               console.error("Error inserting into user table:", err);
 
-              //delete data account if add user is fail
+              // Delete account data if adding user fails
               const queryDeleteAccount =
                 "DELETE FROM `account` WHERE idUser = LAST_INSERT_ID()";
               connectDB.query(queryDeleteAccount, (err) => {
