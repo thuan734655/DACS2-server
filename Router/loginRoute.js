@@ -3,8 +3,9 @@ import bodyParser from "body-parser";
 import connectDB from "../ConnectDB.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import handleEmail from "../services/sendEmail.js";
-import sendOTP from "../services/sendOTP.js";
+import sendOTP from "../services/sendOTPService.js";
+import updateInfoDevice from "../services/updateInfoDeviceService.js";
+import updateOTPService from "../services/updateOTPService.js";
 
 const routerLogin = express.Router();
 
@@ -46,68 +47,38 @@ routerLogin.post("/login", async (req, res) => {
         return res.status(401).json({ message: "Incorrect password." });
       }
 
-      // Generate JWT
       const token = jwt.sign({ id: user.idUser }, secrecKey, {
         expiresIn: "1h",
       });
 
       try {
-        if (user.infoDevice) {
-          if (ip !== user.infoDevice) {
-            const otp = sendOTP(email);
-            const updateOTP = async () => {
-              try {
-                connectDB.query("UPDATE account SET otp = ? WHERE email = ?", [
-                  otp,
-                  email,
-                ]);
-                console.log("update otp 2FA ok");
-              } catch (error) {
-                return res.status(500).json({ message: "Can't update OTP" });
-              }
-            };
-            updateOTP();
-            is2FA = true;
-            console.log(is2FA);
-          } else {
-            console.log(ip, user.infoDevice);
-          }
-        } else {
-          const updateIpQuery =
-            "UPDATE account SET infoDevice = ? WHERE idUser = ?";
-          connectDB.query(updateIpQuery, [ip, user.idUser], (err) => {
-            if (err) {
-              console.error("Error updating IP:", err);
-            } else {
-              console.log("Updated IP:", ip);
-            }
-          });
-        }
-
-        console.log(is2FA);
-        // Respond with token only if 2FA is not required
-        if (!is2FA) {
-          const token = jwt.sign({ id: user.idUser }, secrecKey, {
-            expiresIn: "1h",
-          });
-          return res.json({
-            message: "Login successful!",
-            token,
-            user: {
-              id: user.idUser,
-              email: user.email,
-            },
-          });
-        } else {
-          // Respond to client indicating that 2FA is required
+        // Handle 2FA requirement if device info differs
+        if (user.infoDevice && ip !== user.infoDevice) {
+          const otp = sendOTP(email);
+          updateOTPService(otp, email);
           return res.json({
             message: "Two-factor authentication is required.",
             is2FA: true,
           });
         }
+
+        // Update device info on first login or after 2FA success
+        if (!user.infoDevice) {
+          updateInfoDevice(ip, email);
+        }
+
+        // Respond with token if login is successful and no 2FA is required
+        return res.json({
+          message: "Login successful!",
+          token,
+          user: {
+            id: user.idUser,
+            email: user.email,
+          },
+        });
       } catch (error) {
-        console.error("Error fetching IP:", error);
-        return res.status(500).json({ message: "Unable to fetch IP address." });
+        console.error("Error processing login:", error);
+        return res.status(500).json({ message: "Unable to process login." });
       }
     });
   });

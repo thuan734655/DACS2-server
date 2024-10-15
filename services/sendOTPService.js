@@ -1,5 +1,5 @@
-import generateOTP from "../Router/utils/generateOTP.js";
-import handleEmail from "./sendEmail.js";
+import generateOTP from "./generateOTPService.js"
+import handleEmail from "./sendEmailService.js";
 
 const sendOTP = (email) => {
   const otp = generateOTP();

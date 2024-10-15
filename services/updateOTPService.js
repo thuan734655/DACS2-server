@@ -1,0 +1,14 @@
+import connectDB from "../ConnectDB.js";
+
+const updateOTPService = (otp, email) => {
+  try {
+    connectDB.query("UPDATE account SET otp = ? WHERE email = ?", [
+      otp,
+      email,
+    ]);
+  } catch (error) {
+    console.log("update otp service fail");
+  }
+};
+
+export default updateOTPService;

@@ -1,8 +1,9 @@
-import routerLogin from "./Router/login.js";
+import routerLogin from "./Router/loginRoute.js";
 import express from "express";
 import cors from "cors";
 import connectDB from "./ConnectDB.js";
-import routerHandlePassword from "./Router/HandlePassword.js";
+import routerHandlePassword from "./Router/HandlePasswordRoute.js";
+import updateAccountRoute from "./Router/updateAccountRoute.js"
 const app = express();
 const port = 7749;
 
@@ -25,6 +26,7 @@ app.use(
 
 app.use("/", routerLogin);
 app.use("/", routerHandlePassword);
+app.use("/",updateAccountRoute);
 
 
 // Khởi động server

@@ -3,7 +3,9 @@ import bodyParser from "body-parser";
 import connectDB from "../ConnectDB.js";
 import dotenv from "dotenv";
 import bcrypt from "bcrypt";
-import sendOTP from "../services/sendOTP.js";
+import sendOTP from "../services/sendOTPService.js";
+import updateOTPService from "../services/updateOTPService.js";
+import updateInfoDevice from "../services/updateInfoDeviceService.js";
 dotenv.config();
 
 // create router
@@ -16,24 +18,13 @@ routerHandlePassword.post("/forgotten", async (req, res) => {
   if (!email) {
     return res.status(400).send("Email is required.");
   }
+  //get otp and send
   const otp = sendOTP(email);
-  
-  // update otp in db
-  const updateOTP = async (otp) => {
-    try {
-      connectDB.query("UPDATE account SET otp = ? WHERE email = ?", [
-        otp,
-        email,
-      ]);
-      res.status(200).send({ message: "Send OTP successful" });
-    } catch (error) {
-      res.status(500).send("Failed to send email.");
-    }
-  };
-  updateOTP(otp);
+  //update otp
+  updateOTPService(otp, email);
 });
 routerHandlePassword.post("/verify-otp", async (req, res) => {
-  const { email, otp } = req.body;
+  const { email, otp, infoDevice } = req.body;
   if (!email || !otp) {
     return res.status(400).send({
       message: "Email and otp code are required.",
@@ -55,9 +46,9 @@ routerHandlePassword.post("/verify-otp", async (req, res) => {
       if (storeOtp.toString() !== otp.toString()) {
         return res.status(400).send({ message: "Invalid OTP" });
       }
-      await connectDB.query("UPDATE account SET otp = NULL WHERE email = ?", [
-        email,
-      ]);
+      //update otp
+      updateOTPService("NULL", email);
+      updateInfoDevice(infoDevice, email);
       return res.status(200).send({ message: "OTP verified successfully" });
     }
   );
