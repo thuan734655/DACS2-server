@@ -3,7 +3,8 @@ import express from "express";
 import cors from "cors";
 import connectDB from "./ConnectDB.js";
 import routerHandlePassword from "./Router/HandlePasswordRoute.js";
-import updateAccountRoute from "./Router/updateAccountRoute.js"
+import updateAccountRoute from "./Router/updateAccountRoute.js";
+import routerCheckOtp from "./Router/checkOtpRoute.js";
 const app = express();
 const port = 7749;
 
@@ -26,8 +27,8 @@ app.use(
 
 app.use("/", routerLogin);
 app.use("/", routerHandlePassword);
-app.use("/",updateAccountRoute);
-
+app.use("/", updateAccountRoute);
+app.use("/", routerCheckOtp);
 
 // Khởi động server
 app.listen(port, () => {
