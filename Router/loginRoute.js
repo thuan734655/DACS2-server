@@ -19,7 +19,6 @@ const secrecKey =
 // Login API
 routerLogin.post("/login", async (req, res) => {
   const { email, password, ip } = req.body;
-  let is2FA = false;
 
   if (!email || !password) {
     return res
@@ -36,58 +35,58 @@ routerLogin.post("/login", async (req, res) => {
 
     if (result.length === 0) {
       return res.status(404).json({ message: "Email not found." });
-    }
+    } else {
+      const user = result[0];
 
-    const user = result[0];
-
-    //check account active
-    if (user.isActive === 0) {
-      return res.status(200).json({ message: "Account is not active" });
-    }
-
-    bcrypt.compare(password, user.password, async (err, isMatch) => {
-      if (err) {
-        console.error("Error comparing passwords:", err);
-        return res.status(500).json({ message: "Internal server error." });
-      }
-      if (!isMatch) {
-        return res.status(401).json({ message: "Incorrect password." });
+      //check account active
+      if (user.isActive === 0) {
+        return res.json({ message: "Account is not active" });
       }
 
-      const token = jwt.sign({ id: user.idUser }, secrecKey, {
-        expiresIn: "1h",
-      });
-
-      try {
-        // Handle 2FA requirement if device info differs
-        if (user.infoDevice && ip !== user.infoDevice) {
-          const otp = sendOTP(email);
-          updateOTPService(otp, email);
-          return res.json({
-            message: "Two-factor authentication is required.",
-            is2FA: true,
-          });
+      bcrypt.compare(password, user.password, async (err, isMatch) => {
+        if (err) {
+          console.error("Error comparing passwords:", err);
+          return res.status(500).json({ message: "Internal server error." });
+        }
+        if (!isMatch) {
+          return res.status(401).json({ message: "Incorrect password." });
         }
 
-        // Update device info on first login or after 2FA success
-        if (!user.infoDevice) {
-          updateInfoDevice(ip, email);
-        }
-
-        // Respond with token if login is successful and no 2FA is required
-        return res.json({
-          message: "Login successful!",
-          token,
-          user: {
-            id: user.idUser,
-            email: user.email,
-          },
+        const token = jwt.sign({ id: user.idUser }, secrecKey, {
+          expiresIn: "1h",
         });
-      } catch (error) {
-        console.error("Error processing login:", error);
-        return res.status(500).json({ message: "Unable to process login." });
-      }
-    });
+
+        try {
+          // Handle 2FA requirement if device info differs
+          if (user.infoDevice && ip !== user.infoDevice) {
+            const otp = sendOTP(email);
+            updateOTPService(otp, email);
+            return res.json({
+              message: "Two-factor authentication is required.",
+              is2FA: true,
+            });
+          }
+
+          // Update device info on first login or after 2FA success
+          if (!user.infoDevice) {
+            updateInfoDevice(ip, email);
+          }
+
+          // Respond with token if login is successful and no 2FA is required
+          return res.json({
+            message: "Login successful!",
+            token,
+            user: {
+              id: user.idUser,
+              email: user.email,
+            },
+          });
+        } catch (error) {
+          console.error("Error processing login:", error);
+          return res.status(500).json({ message: "Unable to process login." });
+        }
+      });
+    }
   });
 });
 
@@ -161,7 +160,7 @@ routerLogin.post("/signup", async (req, resAPI) => {
     );
   } catch (error) {
     console.error("Error during sign-up:", error);
-    return res.status(500).json({ message: "Error creating user profile." });
+    return resAPI.status(500).json({ message: "Error creating user profile." });
   }
 });
 

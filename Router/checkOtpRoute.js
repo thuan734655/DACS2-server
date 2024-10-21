@@ -9,9 +9,9 @@ routerCheckOtp.use(bodyParser.json());
 
 // Route: /verify-otp
 routerCheckOtp.post("/verify-otp", async (req, res) => {
-  const { email, otp } = req.body;
-  console.log(email);
-  if (!email || !otp) {
+  const { email, otp, infoDevice } = req.body;
+  console.log(infoDevice);
+  if (!email || !otp || !infoDevice) {
     return res
       .status(400)
       .send({ message: "Email and OTP code are required." });
@@ -28,6 +28,21 @@ routerCheckOtp.post("/verify-otp", async (req, res) => {
               return res.status(400).send({ message: "update isActive fail!" });
             } else if (resUpdateIsActive) {
               res.status(200).send({ message: "OTP verified successfully" });
+            }
+          }
+        );
+        connectDB.query(
+          "UPDATE `account` SET `infoDevice`= ? WHERE email = ?",
+          [infoDevice, email],
+          (errUpdateInfoDevice, resUpdateInfodevice) => {
+            if (errUpdateInfoDevice) {
+              return res
+                .status(400)
+                .send({ message: "update infodevice fail!" });
+            } else if (resUpdateInfodevice) {
+              res
+                .status(200)
+                .send({ message: "update infoDevice successfully" });
             }
           }
         );
