@@ -88,7 +88,25 @@ routerLogin.post("/login", async (req, res) => {
     }
   });
 });
-
+routerLogin.post("/set-info",async (req, res) => {
+  const {email , password} = req.body;
+  const sql  = "SELECT idUser, fullname, avatar FROM user WHERE email = ? AND password = ?"
+  await connectDB.query(sql, [email, password],(err, result) => {
+    if (err) {
+      return res.status(500).json({ message: "Lỗi server", err });
+    }
+    if(result.length > 0 ){
+      const user = result[0];
+      return res.status(200).json({
+        idUser: user.idUser,
+        fullname: user.fullname,
+        avatar: user.avatar
+      })
+    }else{
+      return res.status(400).json({ message: "Thông tin đăng nhập không đúng" });
+    }
+  })
+})
 // Sign-up API
 routerLogin.post("/signup", async (req, resAPI) => {
   const { email, password, day, month, year, fullName, gender } = req.body;
