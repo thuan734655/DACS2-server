@@ -1,8 +1,7 @@
-import generateOTP from "./generateOTPService.js"
 import handleEmail from "./sendEmailService.js";
 
 const sendOTP = (email) => {
-  const otp = generateOTP();
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
   handleEmail({
     email: email,
     content: otp,

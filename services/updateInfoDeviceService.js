@@ -1,4 +1,4 @@
-import connectDB from "../ConnectDB.js";
+import connectDB from "../config/ConnectDB.js";
 
 const updateInfoDevice = (infoDevice, email) => {
   connectDB.query(
