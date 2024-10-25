@@ -33,15 +33,13 @@ const authService = {
   },
 
   async process2FA(user, email, ip) {
-    console.log("Processing 2FA for user:", user);
     if (user.infoDevice && ip !== user.infoDevice) {
-      console.log("IP mismatch detected. Sending OTP...");
       const otp = await sendOTP(email);
       await updateOTPService(otp, email);
-      console.log("OTP sent:", otp);
+
       return true;
     }
-    console.log("No 2FA required.");
+
     return false;
   },
 
@@ -79,8 +77,6 @@ class AuthController {
     try {
       const { email, password, ip } = req.body;
 
-      console.log("Login attempt:", { email, ip });
-
       if (!email || !password) {
         return res
           .status(400)
@@ -88,7 +84,6 @@ class AuthController {
       }
 
       const user = await authService.validateCredentials(email, password);
-      console.log("User validated:", user);
 
       const needs2FA = await authService.process2FA(user, email, ip);
 
@@ -160,7 +155,7 @@ class AuthController {
       });
       const otp = await sendOTP(email);
       await updateOTPService(otp, email);
-      console.log("OTP sent:", otp);
+
       return res
         .status(201)
         .json(createResponse(true, "User registered successfully", { userId }));
