@@ -1,18 +1,10 @@
-import routerLogin from "./Router/login.js";
 import express from "express";
 import cors from "cors";
-import connectDB from "./ConnectDB.js";
-import routerHandlePassword from "./Router/HandlePassword.js";
+import routerLogin from "./Routes/authRoutes.js";
+import routerHandlePassword from "./Routes/passwordRoutes.js";
+// import updateAccountRoute from "./Routes/updateAccountRoute.js";
 const app = express();
 const port = 7749;
-
-connectDB.connect(function (err) {
-  if (err) {
-    console.error("Error connecting to MySQL: ", err);
-    return;
-  }
-  console.log("Connected to MySQL!");
-});
 
 // Middleware
 app.use(
@@ -22,10 +14,11 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"], // Các headers được cho phép
   })
 );
+app.use(express.json());
 
 app.use("/", routerLogin);
 app.use("/", routerHandlePassword);
-
+// app.use("/",updateAccountRoute);
 
 // Khởi động server
 app.listen(port, () => {
