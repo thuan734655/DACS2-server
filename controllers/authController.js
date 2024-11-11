@@ -2,9 +2,9 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import connectDB from "../config/ConnectDB.js";
-import sendOTP from "../services/sendOTPService.js";
-import updateInfoDevice from "../services/updateInfoDeviceService.js";
-import updateOTPService from "../services/updateOTPService.js";
+import sendOTP from "../models/sendOTPModel.js";
+import updateInfoDevice from "../models/updateInfoDeviceModel.js";
+import updateOTPService from "../models/updateOTPServiceModel.js";
 
 const SECRET_KEY = process.env.JWT_SECRET || "your-secret-key";
 
