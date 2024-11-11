@@ -3,7 +3,7 @@ import Post from "../models/postModel.js";
 
 // Đăng bài viết
 export const createPost = async (req, res) => {
-  const { text, userId } = req.body;
+  const { text, idUser } = req.body;
   // Kiểm tra xem có tệp nào được tải lên hay không
   if (!req.files || req.files.length === 0) {
     return res.status(400).json({ message: "No files uploaded" });
@@ -14,7 +14,7 @@ export const createPost = async (req, res) => {
 
   const newPost = {
     text,
-    userId,
+    idUser,
     mediaUrls,
     likes: {},
     shares: 0,
@@ -24,6 +24,7 @@ export const createPost = async (req, res) => {
 
   try {
     await Post.createPost(newPost);
+    console.log(newPost);
     res.status(201).json({ message: "Post created successfully" });
   } catch (error) {
     res.status(500).json({ message: "Failed to create post", error });
@@ -75,7 +76,7 @@ export const replyToComment = async (req, res) => {
 };
 
 export const getAllPosts = async (req, res) => {
-  const result =  Post.getAllPosts();
+  const result = Post.getAllPosts();
   result
     .then((data) => {
       res.status(200).json({ data });
