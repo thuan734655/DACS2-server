@@ -1,19 +1,12 @@
-// controllers/AuthController.js
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import connectDB from "../config/ConnectDB.js";
 import sendOTP from "../models/sendOTPModel.js";
 import updateInfoDevice from "../models/updateInfoDeviceModel.js";
 import updateOTPService from "../models/updateOTPServiceModel.js";
+import { handleResponse } from "../utils/createResponse.js";
 
 const SECRET_KEY = process.env.JWT_SECRET || "your-secret-key";
-
-const createResponse = (success, message, data = null) => ({
-  success,
-  message,
-  timestamp: new Date().toISOString(),
-  ...(data && { data }),
-});
 
 const authService = {
   async findUserByEmail(email) {
@@ -78,9 +71,12 @@ class AuthController {
       const { email, password, ip } = req.body;
 
       if (!email || !password) {
-        return res
-          .status(400)
-          .json(createResponse(false, "Email and password are required"));
+        return handleResponse(
+          res,
+          400,
+          false,
+          "Email and password are required"
+        );
       }
 
       const user = await authService.validateCredentials(email, password);
@@ -88,16 +84,14 @@ class AuthController {
       const needs2FA = await authService.process2FA(user, email, ip);
 
       if (needs2FA) {
-        return res
-          .status(202)
-          .json(createResponse(true, "2FA required", { requires2FA: true }));
+        return handleResponse(res, 202, true, "2FA required", {
+          requires2FA: true,
+        });
       }
       if (user.isActive === 0) {
-        return res
-          .status(202)
-          .json(
-            createResponse(true, "Account is not active", { active: true })
-          );
+        return handleResponse(res, 202, true, "Account is not active", {
+          active: true,
+        });
       }
 
       if (!user.infoDevice) {
@@ -105,18 +99,19 @@ class AuthController {
       }
 
       const token = authService.generateToken(user.idUser);
-      return res.status(200).json(
-        createResponse(true, "Login successful", {
-          token,
-          user: { id: user.idUser, email: user.email },
-        })
-      );
+      return handleResponse(res, 200, true, "Login successful", {
+        token,
+        user: { id: user.idUser, email: user.email },
+      });
     } catch (error) {
       console.error("Login error:", error);
       const status = error.status || 500;
-      return res
-        .status(status)
-        .json(createResponse(false, error.message || "Internal server error"));
+      return handleResponse(
+        res,
+        status,
+        false,
+        error.message || "Internal server error"
+      );
     }
   }
 
@@ -133,16 +128,12 @@ class AuthController {
         !month ||
         !year
       ) {
-        return res
-          .status(400)
-          .json(createResponse(false, "All fields are required"));
+        return handleResponse(res, 400, false, "All fields are required");
       }
 
       const existingUser = await authService.findUserByEmail(email);
       if (existingUser) {
-        return res
-          .status(409)
-          .json(createResponse(false, "Email already exists"));
+        return handleResponse(res, 409, false, "Email already exists");
       }
 
       const birthDate = new Date(`${year}-${month}-${day}`);
@@ -156,14 +147,12 @@ class AuthController {
       const otp = await sendOTP(email);
       await updateOTPService(otp, email);
 
-      return res
-        .status(201)
-        .json(createResponse(true, "User registered successfully", { userId }));
+      return handleResponse(res, 201, true, "User registered successfully", {
+        userId,
+      });
     } catch (error) {
       console.error("Registration error:", error);
-      return res
-        .status(500)
-        .json(createResponse(false, "Error creating account"));
+      return handleResponse(res, 500, false, "Error creating account");
     }
   }
 }

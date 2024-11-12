@@ -1,4 +1,4 @@
-import handleEmail from "./sendEmailService.js";
+import handleEmail from "./sendEmailModel.js";
 
 const sendOTP = (email) => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
