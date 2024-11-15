@@ -5,9 +5,9 @@ class Post {
   static async createPost(postData) {
     try {
       const postRef = db.ref("posts");
-      const newPostRef = postRef.push(); // Tạo ID tự động cho bài viết
-      await newPostRef.set(postData); // Lưu dữ liệu bài viết vào Firebase
-      return newPostRef.key; // Trả về ID của bài viết vừa tạo
+      const newPostRef = postRef.push();
+      await newPostRef.set(postData);
+      return newPostRef.key;
     } catch (error) {
       throw new Error("Error creating post: " + error.message);
     }
@@ -17,32 +17,48 @@ class Post {
   static async addComment(postId, commentData) {
     try {
       const commentRef = db.ref("posts").child(postId).child("comments");
-      const newCommentRef = commentRef.push(); // Tạo ID tự động cho bình luận
-      await newCommentRef.set(commentData); // Lưu dữ liệu bình luận vào Firebase
-      return newCommentRef.key; // Trả về ID của bình luận vừa tạo
+      const newCommentRef = commentRef.push();
+      await newCommentRef.set(commentData);
+      return newCommentRef.key;
     } catch (error) {
       throw new Error("Error adding comment: " + error.message);
     }
   }
 
-  // Người dùng thích bài viết
-  static async likePost(postId, userId) {
+  // Thích bài viết với emoji// Thích bài viết với emoji
+  static async likePost(postId, emoji, userId) {
     try {
-      const postRef = db.ref("posts").child(postId);
-      const snapshot = await postRef.once("value");
-      const post = snapshot.val();
+      const postRef = db.ref(`posts/${postId}`);
+      const likesRef = postRef.child("likes");
+      const likedByRef = postRef.child("likedBy");
 
-      if (post && post.likes && !post.likes[userId]) {
-        // Nếu chưa thích, thêm vào likes
-        await postRef.child("likes").update({ [userId]: true });
-        return true;
-      } else if (post && post.likes && post.likes[userId]) {
-        // Nếu đã thích rồi
-        throw new Error("User already liked this post");
-      } else {
-        // Nếu bài viết không tồn tại
-        throw new Error("Post not found");
+      // Lấy emoji hiện tại mà người dùng đã thích
+      const likedBySnapshot = await likedByRef.child(userId).once("value");
+      const userLikedEmoji = likedBySnapshot.val();
+
+      if (userLikedEmoji === emoji) {
+        // Nếu người dùng đã thích với cùng emoji trước đó, không cần cập nhật gì thêm
+        throw new Error("User has already liked this post with the same emoji");
+      } else if (userLikedEmoji) {
+        // Nếu người dùng đã thích với emoji khác, giảm số lượng của emoji đó
+        await likesRef.child(userLikedEmoji).transaction((currentValue) => {
+          return (currentValue || 1) - 1;
+        });
       }
+
+      // Tăng số lượng cho emoji mới
+      await likesRef.child(emoji).transaction((currentValue) => {
+        return (currentValue || 0) + 1;
+      });
+
+      // Cập nhật emoji mới cho người dùng
+      await likedByRef.update({ [userId]: emoji });
+
+      // Lấy lại số lượng like để trả về
+      const updatedLikesSnapshot = await likesRef.once("value");
+      const updatedLikes = updatedLikesSnapshot.val();
+
+      return updatedLikes;
     } catch (error) {
       throw new Error("Error liking post: " + error.message);
     }
@@ -54,7 +70,7 @@ class Post {
       const postRef = db.ref("posts").child(postId).child("likes");
       const snapshot = await postRef.once("value");
       const likes = snapshot.val() || {};
-      return Object.keys(likes); // Trả về danh sách userIds đã thích bài viết
+      return likes;
     } catch (error) {
       throw new Error("Error fetching likes: " + error.message);
     }
@@ -65,7 +81,7 @@ class Post {
     try {
       const postsRef = db.ref("posts");
       const snapshot = await postsRef.once("value");
-      const posts = snapshot.val() || {}; // Nếu không có bài viết, trả về đối tượng trống
+      const posts = snapshot.val() || {};
       return posts;
     } catch (error) {
       throw new Error("Error fetching posts: " + error.message);
@@ -80,7 +96,7 @@ class Post {
       const post = snapshot.val();
 
       if (post) {
-        const updatedShares = post.shares ? post.shares + 1 : 1; // Nếu không có lượt chia sẻ, khởi tạo là 1
+        const updatedShares = post.shares ? post.shares + 1 : 1;
         await postRef.update({ shares: updatedShares });
         return true;
       }
@@ -99,9 +115,9 @@ class Post {
         .child("comments")
         .child(commentId)
         .child("replies");
-      const newReplyRef = replyRef.push(); // Tạo ID tự động cho phản hồi
-      await newReplyRef.set(replyData); // Lưu dữ liệu phản hồi vào Firebase
-      return newReplyRef.key; // Trả về ID của phản hồi
+      const newReplyRef = replyRef.push();
+      await newReplyRef.set(replyData);
+      return newReplyRef.key;
     } catch (error) {
       throw new Error("Error replying to comment: " + error.message);
     }
