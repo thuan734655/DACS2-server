@@ -35,10 +35,9 @@ class Post {
       // Lấy emoji hiện tại mà người dùng đã thích
       const likedBySnapshot = await likedByRef.child(userId).once("value");
       const userLikedEmoji = likedBySnapshot.val();
-
+      console.log(userLikedEmoji, emoji);
       if (userLikedEmoji === emoji) {
-        // Nếu người dùng đã thích với cùng emoji trước đó, không cần cập nhật gì thêm
-        throw new Error("User has already liked this post with the same emoji");
+        return "duplicate";
       } else if (userLikedEmoji) {
         // Nếu người dùng đã thích với emoji khác, giảm số lượng của emoji đó
         await likesRef.child(userLikedEmoji).transaction((currentValue) => {
@@ -63,26 +62,106 @@ class Post {
       throw new Error("Error liking post: " + error.message);
     }
   }
+  static async deleteLike(idUser, postId, emoji) {
+    try {
+      const postRef = db.ref(`posts/${postId}`);
+      const likedByRef = postRef.child("likedBy");
+      const likesRef = postRef.child("likes");
+
+      // Kiểm tra giá trị của likedBy[idUser]
+      console.log("Checking likedBy for idUser:", idUser);
+      const userReactionSnapshot = await likedByRef.child(idUser).get();
+      console.log(
+        "User reaction snapshot exists:",
+        userReactionSnapshot.exists()
+      );
+      if (!userReactionSnapshot.exists()) {
+        console.warn("User has not liked this post.");
+        return; // Dừng nếu user chưa like
+      }
+
+      const userReaction = userReactionSnapshot.val(); // Emoji mà user đã like
+      console.log("User reaction value:", userReaction);
+
+      // Chỉ giảm lượt like nếu emoji khớp
+      if (userReaction === emoji) {
+        // Lấy giá trị hiện tại của emoji trong likes
+        const emojiSnapshot = await likesRef.child(emoji).get();
+        if (emojiSnapshot.exists()) {
+          const currentCount = emojiSnapshot.val() || 0;
+
+          // Giảm số lượt like nếu giá trị lớn hơn 0
+          if (currentCount > 0) {
+            console.log("Decreasing like count for emoji:", emoji);
+            await likesRef.child(emoji).set(currentCount - 1);
+          }
+        }
+
+        // Xóa user khỏi likedBy
+        console.log("Removing user from likedBy:", idUser);
+        await likedByRef.child(idUser).remove();
+      } else {
+        console.warn("User reaction does not match the provided emoji.");
+      }
+    } catch (error) {
+      throw new Error("Error deleting like: " + error.message);
+    }
+  }
 
   // Lấy danh sách người đã thích bài viết
   static async getLikes(postId) {
     try {
-      const postRef = db.ref("posts").child(postId).child("likes");
+      const postRef = db.ref("posts").child(postId).child("likedBy");
       const snapshot = await postRef.once("value");
+
       const likes = snapshot.val() || {};
+      console.log(likes);
       return likes;
     } catch (error) {
       throw new Error("Error fetching likes: " + error.message);
     }
   }
-
-  // Lấy tất cả bài viết
   static async getAllPosts() {
     try {
       const postsRef = db.ref("posts");
       const snapshot = await postsRef.once("value");
       const posts = snapshot.val() || {};
-      return posts;
+
+      // Khởi tạo đối tượng để lưu thông tin bài viết và nhóm likes
+      const postsWithGroupedLikes = {};
+
+      // Duyệt qua tất cả các bài viết
+      for (const postId in posts) {
+        const post = posts[postId];
+
+        // Khởi tạo đối tượng nhóm likes cho bài viết này
+        const groupedLikes = {};
+
+        // Kiểm tra nếu bài viết có trường likedBy
+        if (post.likedBy) {
+          // Duyệt qua likedBy để nhóm idUser theo emoji
+          for (const userId in post.likedBy) {
+            const emoji = post.likedBy[userId];
+
+            // Nếu emoji chưa có trong groupedLikes, tạo mới mảng cho nó
+            if (!groupedLikes[emoji]) {
+              groupedLikes[emoji] = [];
+            }
+
+            // Thêm userId vào mảng thích emoji này
+            groupedLikes[emoji].push(userId);
+          }
+        }
+
+        // Lưu thông tin bài viết và nhóm like vào đối tượng postsWithGroupedLikes
+        postsWithGroupedLikes[postId] = {
+          post: post, // Thông tin bài viết
+          groupedLikes: groupedLikes, // Nhóm các idUser theo emoji
+        };
+      }
+
+      // Trả về kết quả đã được nhóm
+      return postsWithGroupedLikes;
     } catch (error) {
       throw new Error("Error fetching posts: " + error.message);
     }

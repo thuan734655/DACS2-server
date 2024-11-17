@@ -1,4 +1,5 @@
-import { likePost } from "../controllers/postController.js";
+import { getLikes, likePost } from "../controllers/postController.js";
+import Post from "../models/postModel.js";
 
 // Hàm xử lý các sự kiện WebSocket
 const handleSocketEvents = (socket, io) => {
@@ -22,9 +23,23 @@ const handleSocketEvents = (socket, io) => {
     try {
       // Call the `likePost` function to handle updating likes
       const updatedLikes = await likePost(postId, emoji, idUser);
+      if (updatedLikes.updatedLikes === "duplicate") {
+        await Post.deleteLike(idUser, postId, emoji);
+        console.log("Delete");
+      }
+      const listLikes = await getLikes(postId);
+      // Nhóm các userId theo emoji
+      const grouped = listLikes ? {} : listLikes;
+
+      Object.entries(listLikes).forEach(([userId, emoji]) => {
+        if (!grouped[emoji]) {
+          grouped[emoji] = []; // Nếu chưa có emoji này trong nhóm, tạo mới một mảng
+        }
+        grouped[emoji].push(userId); // Thêm userId vào mảng tương ứng với emoji
+      });
 
       // Emit `receiveReaction` to all clients to update the reactions
-      io.emit("receiveReaction", { postId, emoji });
+      io.emit("receiveReaction", { postId, grouped });
 
       // Emit `reactionSuccess` to the client that triggered the event
       socket.emit("reactionSuccess", { postId, emoji, updatedLikes });

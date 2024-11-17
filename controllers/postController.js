@@ -44,14 +44,12 @@ export const createPost = async (req, res) => {
 };
 
 // Lấy danh sách người đã thích bài viết
-export const getLikes = async (req, res) => {
-  const { postId } = req.params;
-
+export const getLikes = async (postId) => {
   try {
     const likes = await Post.getLikes(postId);
-    return handleResponse(res, 200, true, "Likes retrieved", likes);
+    return likes;
   } catch (error) {
-    return handleResponse(res, 500, false, "Failed to get likes", error);
+    console.log("error when get likes ");
   }
 };
 
