@@ -1,33 +1,72 @@
-import { getLikes, likePost } from "../controllers/postController.js";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+import fs from "fs";
+import path from "path";
 import Post from "../models/postModel.js";
+import { v4 as uuidv4 } from "uuid";
 
-// Hàm xử lý các sự kiện WebSocket
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 const handleSocketEvents = (socket, io) => {
   console.log("User connected:", socket.id);
 
-  // Lắng nghe sự kiện bình luận mới
-  socket.on("newComment", async ({ postId, comment }) => {
+  socket.on("newComment", async (data) => {
+    const { postId, user, text, listFileUrl } = data.comment;
+    console.log("Nhận bình luận mới:", data.comment);
+
     try {
+      const fileUrls = [];
+      if (listFileUrl && listFileUrl.length > 0) {
+        listFileUrl.forEach((file) => {
+          const { name, type, data } = file;
+
+          const base64Data = data.split(",")[1];
+          const buffer = Buffer.from(base64Data, "base64");
+
+          // Tạo tên file duy nhất bằng cách sử dụng thời gian hiện tại và UUID
+          const fileExtension = path.extname(name); // Lấy phần mở rộng của file (ví dụ: .jpg, .png)
+          const sanitizedFileName = `${Date.now()}_${uuidv4()}${fileExtension}`; // Tên file duy nhất
+          const uploadDir = path.join(__dirname, "../images");
+          if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+          }
+          const filePath = path.join(uploadDir, sanitizedFileName);
+
+          // Lưu file
+          fs.writeFileSync(filePath, buffer);
+          console.log(`File đã lưu tại: ${filePath}`);
+
+          // Lưu đường dẫn file
+          fileUrls.push(`/images/${sanitizedFileName}`);
+        });
+      }
+
       // Thêm bình luận vào cơ sở dữ liệu
-      await addComment(postId, comment);
-      // Phát sự kiện nhận bình luận mới đến tất cả các client
-      socket.broadcast.emit("receiveComment", { postId, comment });
-      console.log("Comment added");
+      const comment = {
+        postId,
+        user,
+        text,
+        fileUrls,
+      };
+      await Post.addComment(comment); // Hàm này cần định nghĩa
+      console.log(comment);
+      socket.emit("receiveComment", { comment });
+      console.log("Bình luận đã được thêm và gửi đi.");
     } catch (error) {
-      console.error("Error adding comment:", error);
+      console.error("Lỗi khi thêm bình luận:", error);
     }
   });
 
-  // WebSocket event handling for likePost
   socket.on("newReaction", async ({ postId, emoji, idUser }) => {
     try {
       // Call the `likePost` function to handle updating likes
-      const updatedLikes = await likePost(postId, emoji, idUser);
-      if (updatedLikes.updatedLikes === "duplicate") {
+      const updatedLikes = await Post.likePost(postId, emoji, idUser);
+      if (updatedLikes === "duplicate") {
         await Post.deleteLike(idUser, postId, emoji);
         console.log("Delete");
       }
-      const listLikes = await getLikes(postId);
+      const listLikes = await Post.getLikes(postId);
       // Nhóm các userId theo emoji
       const grouped = listLikes ? {} : listLikes;
 
@@ -52,6 +91,24 @@ const handleSocketEvents = (socket, io) => {
       });
     }
   });
+
+  socket.on(
+    "replyComment",
+    async ({ postId, commentId, replyId, replyData }) => {
+      const result = await Post.replyToComment(
+        postId,
+        commentId,
+        replyId,
+        replyData
+      );
+      if (result) {
+        socket.emit("receiveReply", { postId, commentId, replyId, replyData });
+        console.log("Phản hồi đã được thêm và gửi đi.");
+      } else {
+        console.log("repply error");
+      }
+    }
+  );
 
   // Xử lý khi người dùng ngắt kết nối
   socket.on("disconnect", () => {

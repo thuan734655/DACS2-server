@@ -161,20 +161,13 @@ export const getAllPosts = async (req, res) => {
     if (!postsData || Object.keys(postsData).length === 0) {
       return handleResponse(res, 404, false, "No posts found");
     }
-    const postInfo = await Promise.all(
-      Object.keys(postsData).map(async (postId) => {
-        const idUser = postsData[postId].idUser;
-        const infoUser = await UserModel.getInfoByIdUser(idUser); // Lấy thông tin người dùng
-        return { postId, post: postsData[postId], user: infoUser[0] };
-      })
-    );
-
+    console.log(postsData);
     return handleResponse(
       res,
       200,
       true,
       "Posts retrieved successfully",
-      postInfo
+      postsData
     );
   } catch (err) {
     console.log("Error fetching posts:", err);

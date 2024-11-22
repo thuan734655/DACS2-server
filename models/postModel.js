@@ -1,4 +1,5 @@
 import db from "../config/firebaseConfig.js";
+import UserModel from "./userModel.js";
 
 class Post {
   // Tạo bài viết mới
@@ -14,7 +15,8 @@ class Post {
   }
 
   // Thêm bình luận vào bài viết
-  static async addComment(postId, commentData) {
+  static async addComment(commentData) {
+    const { postId } = commentData;
     try {
       const commentRef = db.ref("posts").child(postId).child("comments");
       const newCommentRef = commentRef.push();
@@ -35,7 +37,6 @@ class Post {
       // Lấy emoji hiện tại mà người dùng đã thích
       const likedBySnapshot = await likedByRef.child(userId).once("value");
       const userLikedEmoji = likedBySnapshot.val();
-      console.log(userLikedEmoji, emoji);
       if (userLikedEmoji === emoji) {
         return "duplicate";
       } else if (userLikedEmoji) {
@@ -115,7 +116,6 @@ class Post {
       const snapshot = await postRef.once("value");
 
       const likes = snapshot.val() || {};
-      console.log(likes);
       return likes;
     } catch (error) {
       throw new Error("Error fetching likes: " + error.message);
@@ -127,41 +127,39 @@ class Post {
       const snapshot = await postsRef.once("value");
       const posts = snapshot.val() || {};
 
-      // Khởi tạo đối tượng để lưu thông tin bài viết và nhóm likes
-      const postsWithGroupedLikes = {};
+      const infoPost = {};
 
-      // Duyệt qua tất cả các bài viết
       for (const postId in posts) {
         const post = posts[postId];
 
-        // Khởi tạo đối tượng nhóm likes cho bài viết này
+        const infoUserList = {};
         const groupedLikes = {};
 
-        // Kiểm tra nếu bài viết có trường likedBy
+        //get info user
+        if (post.idUser) {
+          const infoUser = await UserModel.getInfoByIdUser(post.idUser);
+          infoUserList[post.idUser] = infoUser[0];
+        }
+
         if (post.likedBy) {
-          // Duyệt qua likedBy để nhóm idUser theo emoji
           for (const userId in post.likedBy) {
             const emoji = post.likedBy[userId];
 
-            // Nếu emoji chưa có trong groupedLikes, tạo mới mảng cho nó
             if (!groupedLikes[emoji]) {
               groupedLikes[emoji] = [];
             }
-
-            // Thêm userId vào mảng thích emoji này
             groupedLikes[emoji].push(userId);
           }
         }
 
-        // Lưu thông tin bài viết và nhóm like vào đối tượng postsWithGroupedLikes
-        postsWithGroupedLikes[postId] = {
-          post: post, // Thông tin bài viết
-          groupedLikes: groupedLikes, // Nhóm các idUser theo emoji
+        infoPost[postId] = {
+          post: post,
+          groupedLikes: groupedLikes,
+          infoUserList: infoUserList,
         };
       }
-
-      // Trả về kết quả đã được nhóm
-      return postsWithGroupedLikes;
+      console.log(infoPost);
+      return infoPost;
     } catch (error) {
       throw new Error("Error fetching posts: " + error.message);
     }
@@ -186,19 +184,23 @@ class Post {
   }
 
   // Trả lời bình luận
-  static async replyToComment(postId, commentId, replyData) {
+  static async replyToComment(postId, commentId, replyID, replyData) {
     try {
       const replyRef = db
         .ref("posts")
         .child(postId)
         .child("comments")
-        .child(commentId)
-        .child("replies");
-      const newReplyRef = replyRef.push();
-      await newReplyRef.set(replyData);
-      return newReplyRef.key;
+        .child(commentId);
+      if (replyID) {
+        replyRef.child(replies).child(replyID).child(replies);
+      } else {
+        replyRef.child(replies);
+      }
+      const newReplies = replyRef.push;
+      await newReplies.set(replyData);
+      return newReplies.key;
     } catch (error) {
-      throw new Error("Error replying to comment: " + error.message);
+      throw new Error("Error creating reply: " + error.message);
     }
   }
 

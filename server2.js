@@ -7,6 +7,7 @@ import path from "path";
 import handleSocketEvents from "./websocket/wsServer.js";
 import postRoutes from "./Routes/postRoutes.js";
 import userRoutes from "./Routes/userRouter.js";
+import routerLogin from "./Routes/authRoutes.js";
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use("/images", express.static(path.join(__dirname, "images")));
 
 app.use("/api", postRoutes);
 app.use("/api", userRoutes);
+app.use("/", routerLogin);
 
 // Lắng nghe trên cổng 5000
 const PORT = process.env.PORT || 5000;
