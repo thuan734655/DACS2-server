@@ -20,6 +20,7 @@ const io = new Server(server, {
     origin: "*", // Cho phép tất cả các origin
     methods: ["GET", "POST", "PUT", "DELETE"], // Các phương thức HTTP được phép
   },
+  maxHttpBufferSize : 10 *1024 * 1024,
 });
 
 // Xử lý các sự kiện WebSocket

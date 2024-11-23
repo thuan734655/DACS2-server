@@ -8,12 +8,13 @@ import { v4 as uuidv4 } from "uuid";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+
 const handleSocketEvents = (socket, io) => {
   console.log("User connected:", socket.id);
 
   socket.on("newComment", async (data) => {
+    console.log(12);
     const { postId, user, text, listFileUrl } = data.comment;
-    console.log("Nhận bình luận mới:", data.comment);
 
     try {
       const fileUrls = [];
@@ -42,16 +43,12 @@ const handleSocketEvents = (socket, io) => {
         });
       }
 
-      // Thêm bình luận vào cơ sở dữ liệu
-      const comment = {
-        postId,
-        user,
-        text,
-        fileUrls,
+      const commentContainer = { postId, user, text, fileUrls };
+      const commentId = await Post.addComment(commentContainer);
+      const newComment = {
+        [commentId]: commentContainer,
       };
-      await Post.addComment(comment); // Hàm này cần định nghĩa
-      console.log(comment);
-      socket.emit("receiveComment", { comment });
+      socket.emit("receiveComment", { newComment });
       console.log("Bình luận đã được thêm và gửi đi.");
     } catch (error) {
       console.error("Lỗi khi thêm bình luận:", error);
