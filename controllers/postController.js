@@ -161,7 +161,9 @@ export const getAllPosts = async (req, res) => {
     if (!postsData || Object.keys(postsData).length === 0) {
       return handleResponse(res, 404, false, "No posts found");
     }
-    console.log(postsData);
+    const postInfo = Object.entries(postsData)[0][0];
+    console.log(postsData[postInfo].comments);
+
     return handleResponse(
       res,
       200,
