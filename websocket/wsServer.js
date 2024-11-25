@@ -5,14 +5,14 @@ const handleSocketEvents = (socket, io) => {
   console.log("User connected:", socket.id);
 
   socket.on("newComment", async (data) => {
-    const { postId, user, text, listFileUrl } = data.comment;
+    const { postId, idUser, text, listFileUrl } = data.comment;
 
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
 
       const commentContainer = {
         postId,
-        user,
+        idUser,
         text,
         fileUrls,
         timestamp: Date.now(),
@@ -31,14 +31,14 @@ const handleSocketEvents = (socket, io) => {
     }
   });
   socket.on("replyComment", async ({ commentId, replyData }) => {
-    const { postId, user, text, listFileUrl } = replyData;
+    const { postId, idUser, text, listFileUrl } = replyData;
 
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
 
       const newReplyData = {
         postId,
-        user,
+        idUser,
         text,
         fileUrls,
         timestamp: Date.now(),
@@ -59,12 +59,12 @@ const handleSocketEvents = (socket, io) => {
   });
   socket.on("replyToReply", async ({ replyId, replyData }) => {
     console.log(replyId, 123);
-    const { postId, user, text, listFileUrl } = replyData;
+    const { postId, idUser, text, listFileUrl } = replyData;
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
       const newReplyData = {
         postId,
-        user,
+        idUser,
         text,
         fileUrls,
         timestamp: Date.now(),

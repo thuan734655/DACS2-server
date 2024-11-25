@@ -247,7 +247,8 @@ class Post {
 
               // Lấy thông tin người dùng của reply
               const userInfo = await UserModel.getInfoByIdUser(reply.idUser);
-              reply.idUser = userInfo[0]; // Gán thông tin người dùng vào reply
+              console.log(userInfo, reply, 124);
+              reply.user = userInfo[0]; // Gán thông tin người dùng vào reply
 
               // Nếu reply có trả lời con (nested replies), gọi đệ quy để lấy các trả lời con
               if (reply.replies && reply.replies.length > 0) {
@@ -276,7 +277,7 @@ class Post {
 
           // Lấy thông tin người dùng từ cơ sở dữ liệu qua idUser
           const userInfo = await UserModel.getInfoByIdUser(comment.idUser);
-          comment.idUser = userInfo[0]; // Gán thông tin người dùng vào bình luận
+          comment.user = userInfo[0]; // Gán thông tin người dùng vào bình luận
 
           // Nếu bình luận có trả lời, gọi đệ quy để lấy các trả lời (replies)
           if (comment.replies && comment.replies.length > 0) {
