@@ -109,6 +109,12 @@ const handleSocketEvents = (socket, io) => {
       });
     }
   });
+  socket.on("getCommentsAll", async ({ postId }) => {
+    const comments = await Post.getComments(postId);
+    console.log(comments, 123);
+    io.emit("receiveCommentsList", comments);
+    console.log("Danh sách bình luận đã được gửi đi:", comments);
+  });
 
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
