@@ -3,7 +3,7 @@ import { handleResponse } from "../utils/createResponse.js";
 
 class UserController {
   static async getInfoByIdUser(req, res) {
-    const { idUser } = req.query;
+    const { idUser } = req.body;
 
     if (!idUser) {
       return handleResponse(res, 400, "fail", "idUser is required.");
