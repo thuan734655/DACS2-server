@@ -284,6 +284,8 @@ class Post {
             comment.replies = await getRepliesRecursively(comment.replies); // Gọi hàm đệ quy để lấy các trả lời
           }
 
+          comment.commentId = commentId;
+
           return comment; // Trả về bình luận đã có thông tin người dùng và trả lời
         })
       );

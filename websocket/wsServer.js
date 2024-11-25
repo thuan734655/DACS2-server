@@ -5,7 +5,7 @@ const handleSocketEvents = (socket, io) => {
   console.log("User connected:", socket.id);
 
   socket.on("newComment", async (data) => {
-    const { postId, idUser, text, listFileUrl } = data.comment;
+    const { postId, idUser, text, listFileUrl, user } = data.comment;
 
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
@@ -18,13 +18,15 @@ const handleSocketEvents = (socket, io) => {
         timestamp: Date.now(),
       };
       const commentId = await Post.addComment(commentContainer);
-
+      console.log(user);
       const newComment = {
-        id: commentId,
+        commentId: commentId,
+        postId,
+        user,
         ...commentContainer,
       };
-
-      io.emit("receiveComment", { postId, newComment });
+      console.log(Object.entries(newComment));
+      io.emit("receiveComment", { newComment });
       console.log("Bình luận đã được thêm và gửi đi:", newComment);
     } catch (error) {
       console.error("Lỗi khi thêm bình luận:", error);
@@ -32,7 +34,7 @@ const handleSocketEvents = (socket, io) => {
   });
   socket.on("replyComment", async ({ commentId, replyData }) => {
     const { postId, idUser, text, listFileUrl } = replyData;
-
+    console.log(replyData, commentId, 111);
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
 
@@ -58,7 +60,7 @@ const handleSocketEvents = (socket, io) => {
     }
   });
   socket.on("replyToReply", async ({ replyId, replyData }) => {
-    console.log(replyId, 123);
+    console.log(replyData, 123);
     const { postId, idUser, text, listFileUrl } = replyData;
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
