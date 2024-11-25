@@ -30,6 +30,54 @@ const handleSocketEvents = (socket, io) => {
       console.error("Lỗi khi thêm bình luận:", error);
     }
   });
+  socket.on("replyComment", async ({ commentId, replyData }) => {
+    const { postId, user, text, listFileUrl } = replyData;
+
+    try {
+      const fileUrls = handleFileWebSocket(listFileUrl);
+
+      const newReplyData = {
+        postId,
+        user,
+        text,
+        fileUrls,
+        timestamp: Date.now(),
+      };
+      const replyId = await Post.replyToComment({ commentId, newReplyData });
+
+      const newReply = {
+        id: replyId,
+        ...replyData,
+        timestamp: Date.now(),
+      };
+
+      io.emit("receiveReplyToComment", { commentId, newReply });
+      console.log("Phản hồi đã được thêm và gửi đi:", newReply);
+    } catch (error) {
+      console.error("Lỗi khi thêm phản hồi:", error);
+    }
+  });
+  socket.on("replyToReply", async ({ replyId, replyData }) => {
+    console.log(replyId, 123);
+    const { postId, user, text, listFileUrl } = replyData;
+    try {
+      const fileUrls = handleFileWebSocket(listFileUrl);
+      const newReplyData = {
+        postId,
+        user,
+        text,
+        fileUrls,
+        timestamp: Date.now(),
+      };
+      const replyKey = await Post.replyToReply({ replyId, newReplyData });
+
+      const newReplyToReply = { replyId: replyKey, newReplyData };
+      io.emit("receiveReplyToReply", { replyId, newReplyToReply });
+      console.log("Phản hồi dã được thêm và gửi đi:", newReplyToReply);
+    } catch (err) {
+      console.error("reply to reply failed", err);
+    }
+  });
 
   socket.on("newReaction", async ({ postId, emoji, idUser }) => {
     try {
@@ -62,22 +110,6 @@ const handleSocketEvents = (socket, io) => {
     }
   });
 
-  socket.on("replyComment", async ({ commentId, replyData }) => {
-    try {
-      const replyId = await Post.replyToComment({ commentId, replyData });
-
-      const newReply = {
-        id: replyId,
-        ...replyData,
-        timestamp: Date.now(),
-      };
-
-      io.emit("receiveReply", { commentId, newReply });
-      console.log("Phản hồi đã được thêm và gửi đi:", newReply);
-    } catch (error) {
-      console.error("Lỗi khi thêm phản hồi:", error);
-    }
-  });
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
   });

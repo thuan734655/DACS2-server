@@ -19,25 +19,19 @@ class Post {
     try {
       const { postId, ...commentInfo } = commentData;
 
-      // Tạo comment mới trong bảng `comments`
       const commentRef = db.ref("commentsList").push();
       const commentId = commentRef.key;
 
-      // Lưu dữ liệu comment
       await commentRef.set({
         ...commentInfo,
         postId,
-        replies: [], // Ban đầu không có phản hồi
+        replies: [],
         timestamp: Date.now(),
       });
 
-      // Thêm commentId vào mảng comments của bài viết
-      const postCommentsRef = db.ref(`posts/${postId}/comments`);
-      await postCommentsRef.transaction((comments) => {
-        if (!comments) comments = [];
-        comments.push(commentId);
-        return comments;
-      });
+      await db
+        .ref(`posts/${postId}/comments`)
+        .transaction((comments) => [...(comments || []), commentId]);
 
       return commentId;
     } catch (error) {
@@ -51,31 +45,22 @@ class Post {
     try {
       const postRef = db.ref(`posts/${postId}`);
       const userLikeRef = postRef.child(`likedBy/${userId}`);
+      const currentEmoji = (await userLikeRef.once("value")).val();
 
-      // Lấy emoji hiện tại của người dùng
-      const currentEmojiSnapshot = await userLikeRef.once("value");
-      const currentEmoji = currentEmojiSnapshot.val();
+      if (currentEmoji === emoji) return "duplicate";
 
-      if (currentEmoji === emoji) {
-        return "duplicate";
-      }
-
-      // Tăng lượt thích cho emoji mới
       await postRef
         .child(`likes/${emoji}`)
-        .transaction((current) => (current || 0) + 1);
+        .transaction((count) => (count || 0) + 1);
 
-      // Giảm lượt thích cho emoji cũ (nếu có)
       if (currentEmoji) {
         await postRef
           .child(`likes/${currentEmoji}`)
-          .transaction((current) => Math.max((current || 1) - 1, 0));
+          .transaction((count) => Math.max((count || 1) - 1, 0));
       }
 
-      // Cập nhật emoji mới của người dùng
       await userLikeRef.set(emoji);
 
-      // Trả về lượt thích hiện tại
       const likesSnapshot = await postRef.child("likes").once("value");
       return likesSnapshot.val() || {};
     } catch (error) {
@@ -89,20 +74,13 @@ class Post {
     try {
       const postRef = db.ref(`posts/${postId}`);
       const userLikeRef = postRef.child(`likedBy/${userId}`);
-
-      // Kiểm tra xem người dùng đã thích bằng emoji này chưa
-      const currentEmojiSnapshot = await userLikeRef.once("value");
-      const currentEmoji = currentEmojiSnapshot.val();
+      const currentEmoji = (await userLikeRef.once("value")).val();
 
       if (currentEmoji === emoji) {
-        // Xóa lượt thích của người dùng
         await userLikeRef.remove();
-
-        // Giảm số lượng thích của emoji
-        await postRef.child(`likes/${emoji}`).transaction((current) => {
-          const newCount = (current || 1) - 1;
-          return newCount > 0 ? newCount : null; // Xóa emoji nếu không còn lượt thích
-        });
+        await postRef
+          .child(`likes/${emoji}`)
+          .transaction((count) => (count > 1 ? count - 1 : null));
       }
     } catch (error) {
       console.error("Error deleting like:", error);
@@ -113,40 +91,56 @@ class Post {
   // Lấy toàn bộ bài viết
   static async getAllPosts() {
     try {
-      // Lấy tất cả bài viết từ Firebase
       const postsSnapshot = await db.ref("posts").once("value");
       const posts = postsSnapshot.val() || {};
-
       const infoPost = {};
 
-      // Duyệt qua từng bài viết
       await Promise.all(
         Object.entries(posts).map(async ([postId, post]) => {
           const groupedLikes = {};
           const infoUserList = {};
           const comments = [];
 
-          // Nhóm các lượt thích theo emoji
+          // Xử lý likedBy
           if (post.likedBy) {
             for (const [userId, emoji] of Object.entries(post.likedBy)) {
-              if (!groupedLikes[emoji]) {
-                groupedLikes[emoji] = [];
-              }
+              if (!groupedLikes[emoji]) groupedLikes[emoji] = [];
               groupedLikes[emoji].push(userId);
             }
           }
 
-          // Lấy thông tin người dùng
+          // Lấy thông tin user của bài viết
           if (post.idUser) {
             const [user] = await UserModel.getInfoByIdUser(post.idUser);
-            infoUserList[post.idUser] = {
-              id: post.idUser,
-              ...user[0],
-            };
+            infoUserList[post.idUser] = { id: post.idUser, ...user[0] };
           }
 
-          // Lấy danh sách bình luận của bài viết
-          if (post.comments && Array.isArray(post.comments)) {
+          // Hàm đệ quy để lấy tất cả các replies
+          const fetchReplies = async (replyIds) => {
+            if (!replyIds || replyIds.length === 0) return [];
+
+            const replies = await Promise.all(
+              replyIds.map(async (replyId) => {
+                const replySnapshot = await db
+                  .ref(`replies/${replyId}`)
+                  .once("value");
+                const reply = replySnapshot.val();
+
+                if (reply) {
+                  // Đệ quy để lấy replies con của reply hiện tại
+                  const nestedReplies = await fetchReplies(reply.replies || []);
+                  return { ...reply, replies: nestedReplies };
+                }
+                return null;
+              })
+            );
+
+            // Loại bỏ null trong trường hợp reply không tồn tại
+            return replies.filter((reply) => reply !== null);
+          };
+
+          // Lấy danh sách comments và replies của từng comment
+          if (Array.isArray(post.comments)) {
             for (const commentId of post.comments) {
               const commentSnapshot = await db
                 .ref(`commentsList/${commentId}`)
@@ -154,53 +148,15 @@ class Post {
               const comment = commentSnapshot.val();
 
               if (comment) {
-                const replies = [];
-                // Lấy danh sách phản hồi của bình luận
-                if (comment.replies && Array.isArray(comment.replies)) {
-                  for (const replyId of comment.replies) {
-                    const replySnapshot = await db
-                      .ref(`replies/${replyId}`)
-                      .once("value");
-                    const reply = replySnapshot.val();
-                    if (reply) {
-                      const replyReplies = [];
-                      // Lấy phản hồi cho mỗi phản hồi
-                      if (reply.replies && Array.isArray(reply.replies)) {
-                        for (const replyId2 of reply.replies) {
-                          const replyReplySnapshot = await db
-                            .ref(`replies/${replyId2}`)
-                            .once("value");
-                          const replyReply = replyReplySnapshot.val();
-                          if (replyReply) replyReplies.push(replyReply);
-                        }
-                      }
-
-                      // Thêm phản hồi vào danh sách
-                      replies.push({
-                        ...reply,
-                        replies: replyReplies,
-                      });
-                    }
-                  }
-                }
-
-                // Thêm bình luận vào danh sách
-                comments.push({
-                  commentId,
-                  ...comment,
-                  replies,
-                });
+                // Gọi hàm đệ quy để lấy replies của comment
+                const replies = await fetchReplies(comment.replies || []);
+                comments.push({ commentId, ...comment, replies });
               }
             }
           }
 
-          // Thêm bài viết và các thông tin liên quan vào kết quả
-          infoPost[postId] = {
-            post,
-            groupedLikes,
-            infoUserList,
-            comments,
-          };
+          // Đưa dữ liệu đã xử lý vào infoPost
+          infoPost[postId] = { post, groupedLikes, infoUserList, comments };
         })
       );
 
@@ -212,30 +168,16 @@ class Post {
   }
 
   // Trả lời bình luận
-  static async replyToComment({ commentId, replyData }) {
+  static async replyToComment({ commentId, newReplyData }) {
     try {
-      // Tạo reply mới trong bảng `replies`
       const replyRef = db.ref("replies").push();
       const replyId = replyRef.key;
 
-      // Làm sạch dữ liệu replyData trước khi lưu
-      const cleanedReplyData = {
-        ...replyData,
-        commentId, // Đảm bảo commentId luôn có giá trị
-        timestamp: Date.now(),
-      };
+      await replyRef.set({ ...newReplyData, replyId, commentId });
 
-      // Lưu replyData vào bảng `replies`
-      await replyRef.set(cleanedReplyData);
-
-      // Thêm replyId vào mảng replies của comment
-      const commentRepliesRef = db.ref(`commentsList/${commentId}/replies`);
-      await commentRepliesRef.transaction((replies) => {
-        if (!replies) replies = [];
-        // Thêm replyId vào mảng replies của comment
-        replies.push(replyId);
-        return replies;
-      });
+      await db
+        .ref(`commentsList/${commentId}/replies`)
+        .transaction((replies) => [...(replies || []), replyId]);
 
       return replyId;
     } catch (error) {
@@ -245,21 +187,16 @@ class Post {
   }
 
   // Trả lời một phản hồi (reply to reply)
-  static async replyToReply({ replyId, replyData }) {
+  static async replyToReply({ replyId, newReplyData }) {
     try {
-      // Tạo reply mới trong bảng `replies`
       const replyRef = db.ref("replies").push();
       const newReplyId = replyRef.key;
 
-      await replyRef.set({ ...replyData, replyId, timestamp: Date.now() });
+      await replyRef.set({ ...newReplyData, replyId: newReplyId });
 
-      // Thêm newReplyId vào mảng replies của reply
-      const replyRepliesRef = db.ref(`replies/${replyId}/replies`);
-      await replyRepliesRef.transaction((replies) => {
-        if (!replies) replies = [];
-        replies.push(newReplyId);
-        return replies;
-      });
+      await db
+        .ref(`replies/${replyId}/replies`)
+        .transaction((replies) => [...(replies || []), newReplyId]);
 
       return newReplyId;
     } catch (error) {
@@ -271,11 +208,9 @@ class Post {
   // Lấy bình luận của bài viết
   static async getComments(postId) {
     try {
-      const commentsRef = db.ref(`posts/${postId}/comments`);
-      const snapshot = await commentsRef.once("value");
-      const commentIds = snapshot.val() || [];
-
-      const comments = await Promise.all(
+      const commentIds =
+        (await db.ref(`posts/${postId}/comments`).once("value")).val() || [];
+      return await Promise.all(
         commentIds.map(async (commentId) => {
           const commentSnapshot = await db
             .ref(`commentsList/${commentId}`)
@@ -283,8 +218,6 @@ class Post {
           return commentSnapshot.val();
         })
       );
-
-      return comments;
     } catch (error) {
       console.error("Error getting comments:", error);
       throw error;
@@ -294,11 +227,11 @@ class Post {
   // Lấy trả lời của bình luận
   static async getReplies(commentId) {
     try {
-      const repliesRef = db.ref(`commentsList/${commentId}/replies`);
-      const snapshot = await repliesRef.once("value");
-      const replyIds = snapshot.val() || [];
-
-      const replies = await Promise.all(
+      const replyIds =
+        (
+          await db.ref(`commentsList/${commentId}/replies`).once("value")
+        ).val() || [];
+      return await Promise.all(
         replyIds.map(async (replyId) => {
           const replySnapshot = await db
             .ref(`replies/${replyId}`)
@@ -306,8 +239,6 @@ class Post {
           return replySnapshot.val();
         })
       );
-
-      return replies;
     } catch (error) {
       console.error("Error getting replies:", error);
       throw error;
