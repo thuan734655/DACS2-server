@@ -4,7 +4,7 @@ import { handleResponse } from "../utils/createResponse.js";
 
 // Tạo bài viết mới
 export const createPost = async (req, res) => {
-  const { text, idUser, textColor, backgroundColor, comments, likes } = req.body;
+  const { text, idUser, textColor, backgroundColor, comments } = req.body;
 
   let mediaUrls;
   if (!req.files || req.files.length === 0) {
@@ -19,42 +19,37 @@ export const createPost = async (req, res) => {
     textColor,
     backgroundColor,
     mediaUrls,
-    likes: likes || {}, // Đảm bảo likes là một đối tượng
+    likes: {
+      "👍": 0,
+      "❤️": 0,
+      "😂": 0,
+      "😢": 0,
+      "😡": 0,
+      "😲": 0,
+      "🥳": 0,
+    },
     shares: 0,
-    comments: comments || [], // Đảm bảo comments là một mảng
+    comments: comments ? [] : 0, // Đảm bảo comments là một mảng
     createdAt: Date.now(),
   };
 
   try {
     const postId = await Post.createPost(newPost); // Tạo bài viết và lấy ID bài viết
-    return handleResponse(res, 201, true, "Post created successfully", { postId });
+    return handleResponse(res, 201, true, "Post created successfully", {
+      postId,
+    });
   } catch (error) {
     return handleResponse(res, 500, false, "Failed to create post", error);
   }
 };
 
-// Thích bài viết
-export const likePost = async (req, res) => {
-  const { postId } = req.params;
-  const { userId } = req.body; // userId là người thích bài viết
-
-  try {
-    const result = await Post.likePost(postId, userId);
-    return handleResponse(res, 200, true, "Post liked", { result });
-  } catch (error) {
-    return handleResponse(res, 500, false, error.message);
-  }
-};
-
 // Lấy danh sách người đã thích bài viết
-export const getLikes = async (req, res) => {
-  const { postId } = req.params;
-
+export const getLikes = async (postId) => {
   try {
     const likes = await Post.getLikes(postId);
-    return handleResponse(res, 200, true, "Likes retrieved", likes);
+    return likes;
   } catch (error) {
-    return handleResponse(res, 500, false, "Failed to get likes", error);
+    console.log("error when get likes ");
   }
 };
 
@@ -71,7 +66,9 @@ export const addComment = async (req, res) => {
 
   try {
     const commentId = await Post.addComment(postId, commentData); // Thêm bình luận vào bài viết
-    return handleResponse(res, 201, true, "Comment added successfully", { commentId });
+    return handleResponse(res, 201, true, "Comment added successfully", {
+      commentId,
+    });
   } catch (error) {
     return handleResponse(res, 500, false, "Failed to add comment", error);
   }
@@ -90,9 +87,70 @@ export const replyToComment = async (req, res) => {
 
   try {
     const replyId = await Post.replyToComment(postId, commentId, replyData); // Thêm phản hồi vào bình luận
-    return handleResponse(res, 201, true, "Reply added successfully", { replyId });
+    return handleResponse(res, 201, true, "Reply added successfully", {
+      replyId,
+    });
   } catch (error) {
     return handleResponse(res, 500, false, "Failed to add reply", error);
+  }
+};
+
+// Lấy tất cả bài viết
+// export const getAllPosts = async (req, res) => {
+//   try {
+//     const postsData = await Post.getAllPosts();
+//     if (!postsData || Object.keys(postsData).length === 0) {
+//       return handleResponse(res, 404, false, "No posts found");
+//     }
+//     const postInfo = await Promise.all(
+//       Object.keys(postsData).map(async (postId) => {
+//         const idUser = postsData[postId].idUser;
+//         const infoUser = await UserModel.getInfoByIdUser(idUser); // Lấy thông tin người dùng
+
+//         return { postId, post: postsData[postId], user: infoUser[0] };
+//       })
+//     );
+
+//     return handleResponse(
+//       res,
+//       200,
+//       true,
+//       "Posts retrieved successfully",
+//       postInfo
+//     );
+//   } catch (err) {
+//     console.log("Error fetching posts:", err);
+//     return handleResponse(res, 500, false, "Error fetching posts", err);
+//   }
+// };
+
+// Thích bài viết với emoji cụ thể, không cần `res` cho WebSocket
+export const likePost = async (postId, emoji, idUser) => {
+  // Kiểm tra nếu emoji không thuộc danh sách emoji hợp lệ
+  const validEmojis = ["👍", "❤️", "😂", "😢", "😡", "😲", "🥳"];
+  if (!validEmojis.includes(emoji)) {
+    return handleResponse(res, 400, false, "Invalid emoji");
+  }
+
+  try {
+    // Gọi phương thức likePost từ model Post để cập nhật trong cơ sở dữ liệu
+    const updatedLikes = await Post.likePost(postId, emoji, idUser);
+
+    // Kiểm tra nếu việc cập nhật không thành công
+    if (!updatedLikes) {
+      return "Failed to update like";
+    }
+
+    // Trả về kết quả đã được cập nhật (số lượng likes mới)
+    return (
+      "Post liked successfully",
+      {
+        updatedLikes,
+      }
+    );
+  } catch (error) {
+    // Bắt lỗi và trả về phản hồi
+    console.error("Error liking post:", error);
   }
 };
 
@@ -103,16 +161,16 @@ export const getAllPosts = async (req, res) => {
     if (!postsData || Object.keys(postsData).length === 0) {
       return handleResponse(res, 404, false, "No posts found");
     }
-    const postInfo = await Promise.all(
-      Object.keys(postsData).map(async (postId) => {
-        const idUser = postsData[postId].idUser;
-        const infoUser = await UserModel.getInfoByIdUser(idUser); // Lấy thông tin người dùng
+    const postInfo = Object.entries(postsData)[0][0];
+    console.log(postsData[postInfo].comments);
 
-        return { postId, post: postsData[postId], user: infoUser[0] };
-      })
+    return handleResponse(
+      res,
+      200,
+      true,
+      "Posts retrieved successfully",
+      postsData
     );
-
-    return handleResponse(res, 200, true, "Posts retrieved successfully", postInfo);
   } catch (err) {
     console.log("Error fetching posts:", err);
     return handleResponse(res, 500, false, "Error fetching posts", err);
