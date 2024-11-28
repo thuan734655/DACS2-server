@@ -34,7 +34,6 @@ class PasswordController {
         "Email and OTP code are required."
       );
     }
-
     try {
       const [results] = await connectDB.query(
         "SELECT otp FROM account WHERE email = ?",

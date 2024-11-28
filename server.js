@@ -4,71 +4,68 @@ import { Server } from "socket.io";
 import cors from "cors";
 import { fileURLToPath } from "url";
 import path from "path";
+
+// Import WebSocket handler
 import handleSocketEvents from "./websocket/wsServer.js";
-import postRoutes from "./Routes/postRoutes.js";
-import userRoutes from "./Routes/userRouter.js";
+
+// Import route handlers
 import routerLogin from "./Routes/authRoutes.js";
 import routerHandlePassword from "./Routes/passwordRoutes.js";
 import routerUser from "./Routes/userRouter.js";
-import http from "http";
-import { Server } from "socket.io";
-// Kết nối MySQL
+import postRoutes from "./Routes/postRoutes.js";
+
+// Import database connection
 import connectDB from "./config/ConnectDB.js";
 
-
-
 const app = express();
+const PORT = process.env.PORT || 5000;
 
-// Tạo server HTTP
+// Create HTTP server
 const server = http.createServer(app);
 
-// Khởi tạo socket.io
+// Initialize Socket.io
 const io = new Server(server, {
   cors: {
-    origin: "*", // Cho phép tất cả các origin
-    methods: ["GET", "POST", "PUT", "DELETE"], // Các phương thức HTTP được phép
+    origin: "*", // Allow all origins
+    methods: ["GET", "POST", "PUT", "DELETE"], // Allowed HTTP methods
   },
-  maxHttpBufferSize: 10 * 1024 * 1024,
+  maxHttpBufferSize: 10 * 1024 * 1024, // Max buffer size for large payloads
 });
 
-// Middleware
-app.use(cors());
-// Xử lý các sự kiện WebSocket
+// Handle WebSocket events
 io.on("connection", (socket) => {
-  handleSocketEvents(socket, io); // Truyền `socket` và `io` vào hàm xử lý sự kiện
-});
-
-// Cấu hình middleware
-app.use(
-  cors({
-    origin: "*", // Cho phép tất cả các nguồn
-    methods: ["GET", "POST", "PUT", "DELETE"], // Các phương thức HTTP được cho phép
-    allowedHeaders: ["Content-Type", "Authorization"], // Các headers được cho phép
-  })
-);
-app.use(express.json());
-
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"],
-  },
-});
-
-// Socket.IO setup
-io.on("connectDB", (socket) => {
-  console.log("A user connected:", socket.idUser);
+  console.log("A user connected:", socket.id);
 
   // Add user ID mapping
   socket.on("register", (userId) => {
     socket.userId = userId;
+    console.log(`User registered with ID: ${userId}`);
   });
 
+  // Handle disconnection
   socket.on("disconnect", () => {
-    console.log("A user disconnected:", socket.idUser);
+    console.log("A user disconnected:", socket.userId || socket.id);
   });
+
+  // Delegate custom events to external handler
+  handleSocketEvents(socket, io);
 });
+
+// Middleware configuration
+app.use(
+  cors({
+    origin: "*", // Allow all origins
+    methods: ["GET", "POST", "PUT", "DELETE"], // Allowed HTTP methods
+    allowedHeaders: ["Content-Type", "Authorization"], // Allowed headers
+  })
+);
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Static file serving for images
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.use("/images", express.static(path.join(__dirname, "images")));
 
 // API Routes
 app.use(express.urlencoded({ extended: true }));
@@ -83,15 +80,22 @@ app.use("/api", userRoutes);
 app.use("/", routerLogin);
 app.use("/", routerHandlePassword);
 app.use("/", routerUser);
-const router = express.Router();
-router.get("/api/conversations/partner/:currentUserId", async (req, res) => {
+app.use("/api", postRoutes);
+
+// Route for fetching conversation partner
+app.get("/api/conversations/partner/:currentUserId", async (req, res) => {
   try {
     const currentUserId = parseInt(req.params.currentUserId, 10);
     if (isNaN(currentUserId)) {
       return res.status(400).json({ message: "Invalid user ID" });
     }
+
     const [conversations] = await connectDB.query(
-      `SELECT CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END AS partnerId FROM conversations WHERE sender_id = ? OR receiver_id = ? ORDER BY created_at DESC LIMIT 1`,
+      `SELECT CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END AS partnerId 
+       FROM conversations 
+       WHERE sender_id = ? OR receiver_id = ? 
+       ORDER BY created_at DESC 
+       LIMIT 1`,
       [currentUserId, currentUserId, currentUserId]
     );
 
@@ -124,14 +128,8 @@ router.get("/api/conversations/partner/:currentUserId", async (req, res) => {
     });
   }
 });
-app.use("/", router);
 
-// Start server
-server.listen(port, () => {
-  console.log(`Server is listening on http://localhost:${port}`);
-
-// Lắng nghe trên cổng 5000
-const PORT = process.env.PORT || 5000;
+// Start the server
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });

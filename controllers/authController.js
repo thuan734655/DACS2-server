@@ -156,7 +156,7 @@ class AuthController {
         return handleResponse(res, 409, false, "Email already exists");
       }
 
-      const birthDate = new Date(`${year}-${month}-${day}`);
+      const birthDate = new Date(${year}-${month}-${day});
       const userId = await authService.createUser({
         email,
         password,
