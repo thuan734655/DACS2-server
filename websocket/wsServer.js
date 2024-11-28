@@ -92,7 +92,7 @@ const handleSocketEvents = (socket, io) => {
   });
 
   socket.on("replyComment", async ({ commentId, replyData }) => {
-    const { postId, idUser, text, listFileUrl } = replyData;
+    const { postId, idUser, user, text, listFileUrl } = replyData;
     console.log(replyData, commentId, 111);
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
@@ -108,8 +108,8 @@ const handleSocketEvents = (socket, io) => {
 
       const newReply = {
         id: replyId,
-        ...replyData,
-        timestamp: Date.now(),
+        user: [user],
+        ...newReplyData,
       };
 
       io.emit("receiveReplyToComment", { commentId, newReply });
@@ -120,7 +120,7 @@ const handleSocketEvents = (socket, io) => {
   });
   socket.on("replyToReply", async ({ replyId, replyData }) => {
     console.log(replyData, 123);
-    const { postId, idUser, text, listFileUrl } = replyData;
+    const { postId, idUser, user, text, listFileUrl } = replyData;
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
       const newReplyData = {
@@ -132,8 +132,13 @@ const handleSocketEvents = (socket, io) => {
       };
       const replyKey = await Post.replyToReply({ replyId, newReplyData });
 
-      const newReplyToReply = { replyId: replyKey, newReplyData };
-      io.emit("receiveReplyToReply", { replyId, newReplyToReply });
+      const newReply = {
+        replyId: replyKey,
+        user: [user],
+        ...newReplyData,
+      };
+
+      io.emit("receiveReplyToReply", { replyId, newReply });
       console.log("Phản hồi dã được thêm và gửi đi:", newReplyToReply);
     } catch (err) {
       console.error("reply to reply failed", err);
