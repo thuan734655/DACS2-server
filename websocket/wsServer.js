@@ -97,10 +97,6 @@ const handleSocketEvents = (socket, io) => {
     }
   });
 
-  socket.on("newComment", ({ formData }) => {
-    const { text, idUser, textColor, backgroundColor, comments } = formData;
-  });
-
   socket.on("replyComment", async ({ commentId, replyData }) => {
     const { postId, idUser, text, listFileUrl } = replyData;
     console.log(replyData, commentId, 111);
