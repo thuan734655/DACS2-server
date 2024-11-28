@@ -125,8 +125,7 @@ const handleSocketEvents = (socket, io) => {
     }
   });
   socket.on("replyToReply", async ({ replyId, replyData }) => {
-    console.log(replyData, 123);
-    const { postId, idUser, text, listFileUrl } = replyData;
+    const { postId, idUser, text, listFileUrl, user } = replyData;
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
       const newReplyData = {
@@ -135,14 +134,26 @@ const handleSocketEvents = (socket, io) => {
         text,
         fileUrls,
         timestamp: Date.now(),
+        replies: []
       };
+
       const replyKey = await Post.replyToReply({ replyId, newReplyData });
 
-      const newReplyToReply = { replyId: replyKey, newReplyData };
-      io.emit("receiveReplyToReply", { replyId, newReplyToReply });
-      console.log("Phản hồi dã được thêm và gửi đi:", newReplyToReply);
+      const newReply = {
+        replyId: replyKey,
+        user: Array.isArray(user) ? user : [user],
+        ...newReplyData,
+        parentReplyId: replyId
+      };
+
+      io.emit("receiveReplyToReply", { replyId, newReply });
+      console.log("Reply to reply added successfully:", newReply);
     } catch (err) {
-      console.error("reply to reply failed", err);
+      console.error("Error in reply to reply:", err);
+      socket.emit("replyError", { 
+        message: "Failed to add reply",
+        error: err.message 
+      });
     }
   });
 
