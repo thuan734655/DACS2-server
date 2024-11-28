@@ -1,9 +1,9 @@
 import Post from "../models/postModel.js";
 import UserModel from "../models/userModel.js";
 import handleFileWebSocket from "../utils/handleFileWebSocket.js";
-import { v4 as uuidv4 } from 'uuid';
-import path from 'path';
-import fs from 'fs';
+import { v4 as uuidv4 } from "uuid";
+import path from "path";
+import fs from "fs";
 
 const handleSocketEvents = (socket, io) => {
   console.log("User connected:", socket.id);
@@ -11,9 +11,6 @@ const handleSocketEvents = (socket, io) => {
   socket.on("newPost", async ({ post }) => {
     console.log("Post creation started");
     try {
-      // Generate unique ID for the post
-      const postId = uuidv4();
-      
       // Handle file uploads using existing utility
       let mediaUrls = [];
       if (post.listFileUrl && post.listFileUrl.length > 0) {
@@ -25,7 +22,6 @@ const handleSocketEvents = (socket, io) => {
 
       // Create final post object
       const postData = {
-        id: postId,
         text: post.text,
         idUser: post.idUser,
         textColor: post.textColor,
@@ -42,21 +38,21 @@ const handleSocketEvents = (socket, io) => {
         },
         shares: 0,
         comments: [],
-        createdAt: Date.now()
+        createdAt: Date.now(),
       };
 
       // Save post to database
-      await Post.createPost(postData);
+      const postId = await Post.createPost(postData);
 
       // Create response with user info
       const postResponse = {
-        id: postId,
+        postId: postId,
         post: postData,
         infoUserList: {
-          [post.idUser]: { id: post.idUser, ...userInfo[0] }
+          [post.idUser]: { id: post.idUser, ...userInfo[0] },
         },
         groupedLikes: {},
-        commentCount: 0
+        commentCount: 0,
       };
 
       // Broadcast to all clients
@@ -68,9 +64,8 @@ const handleSocketEvents = (socket, io) => {
     }
   });
 
-  socket.on("newComment", async (data) => {
-    const { postId, idUser, text, listFileUrl, user } = data.comment;
-
+  socket.on("newComment", async ({ comment }) => {
+    const { postId, idUser, text, listFileUrl, user } = comment;
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
 
@@ -82,11 +77,10 @@ const handleSocketEvents = (socket, io) => {
         timestamp: Date.now(),
       };
       const commentId = await Post.addComment(commentContainer);
-      console.log(user);
       const newComment = {
         commentId: commentId,
         postId,
-        user,
+        user: [user],
         ...commentContainer,
       };
       console.log(Object.entries(newComment));

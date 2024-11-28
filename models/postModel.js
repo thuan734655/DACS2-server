@@ -7,6 +7,7 @@ class Post {
     try {
       const postRef = db.ref("posts").push();
       await postRef.set({ ...postData, comments: [] });
+      db.ref(`posts/${postRef.key}`).update({ postId: postRef.key });
       return postRef.key;
     } catch (error) {
       console.error("Error creating post:", error);
@@ -18,7 +19,7 @@ class Post {
   static async addComment(commentData) {
     try {
       const { postId, ...commentInfo } = commentData;
-
+      console.log(postId, "gse");
       const commentRef = db.ref("commentsList").push();
       const commentId = commentRef.key;
 
