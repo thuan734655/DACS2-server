@@ -6,7 +6,15 @@ import updateInfoDevice from "../models/updateInfoDeviceModel.js";
 import updateOTPService from "../models/updateOTPServiceModel.js";
 import { handleResponse } from "../utils/createResponse.js";
 
-const SECRET_KEY = process.env.JWT_SECRET || "your-secret-key";
+const SECRET_KEY =
+  process.env.JWT_SECRET ||
+  "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.VFb0qJ1LRg_4ujbZoRMXnVkUgiuKq5KxWqNdbKq_G9Vvz-S1zZa9LPxtHWKa64zDl2ofkT8F6jBt_K4riU-fPg";
+const createResponse = (success, message, data = null) => ({
+  success,
+  message,
+  timestamp: new Date().toISOString(),
+  ...(data && { data }),
+});
 
 const authService = {
   async findUserByEmail(email) {
