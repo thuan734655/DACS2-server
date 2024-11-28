@@ -112,6 +112,9 @@ class AuthController {
       if (!user.infoDevice) {
         await updateInfoDevice(ip, email);
       }
+
+      const token = authService.generateToken(user.idUser);
+      console.log(user.fullName);
       
       return handleResponse(res, 200, true, "Login successful", {
         
