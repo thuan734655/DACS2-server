@@ -4,21 +4,27 @@ import { Server } from "socket.io";
 import cors from "cors";
 import { fileURLToPath } from "url";
 import path from "path";
-
-// Import WebSocket handler
 import handleSocketEvents from "./websocket/wsServer.js";
-
-// Import route handlers
 import routerLogin from "./Routes/authRoutes.js";
 import routerHandlePassword from "./Routes/passwordRoutes.js";
 import routerUser from "./Routes/userRouter.js";
 import postRoutes from "./Routes/postRoutes.js";
+import dotenv from "dotenv";
 
-// Import database connection
-import connectDB from "./config/ConnectDB.js";
+dotenv.config();
 
-const app = express();
 const PORT = process.env.PORT || 5000;
+const app = express();
+// Middleware configuration
+app.use(
+  cors({
+    origin: "*", // Allow all origins
+    methods: ["GET", "POST", "PUT", "DELETE"], // Allowed HTTP methods
+    allowedHeaders: ["Content-Type", "Authorization"], // Allowed headers
+  })
+);
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Create HTTP server
 const server = http.createServer(app);
@@ -51,37 +57,15 @@ io.on("connection", (socket) => {
   handleSocketEvents(socket, io);
 });
 
-// Middleware configuration
-app.use(
-  cors({
-    origin: "*", // Allow all origins
-    methods: ["GET", "POST", "PUT", "DELETE"], // Allowed HTTP methods
-    allowedHeaders: ["Content-Type", "Authorization"], // Allowed headers
-  })
-);
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Static file serving for images
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-app.use("/images", express.static(path.join(__dirname, "images")));
-
-// API Routes
-app.use(express.urlencoded({ extended: true }));
-
 // Set up static file serving cho hình ảnh
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use("/images", express.static(path.join(__dirname, "images")));
 
-app.use("/api", postRoutes);
-app.use("/api", userRoutes);
 app.use("/", routerLogin);
 app.use("/", routerHandlePassword);
 app.use("/", routerUser);
 app.use("/api", postRoutes);
-
 // Route for fetching conversation partner
 app.get("/api/conversations/partner/:currentUserId", async (req, res) => {
   try {
