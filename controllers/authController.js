@@ -71,11 +71,11 @@ class AuthController {
     try {
       const { email, password, ip } = req.body;
       const query =
-      "SELECT u.idUser, u.fullName, u.avatar, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?";
+        "SELECT u.idUser, u.fullName, u.avatar, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?";
 
       connectDB.query(query, [email, password], (err, result) => {
         if (err) return res.status(500).json({ error: "Lỗi server" });
-        
+
         if (result.length > 0) {
           // Trả về thông tin user nếu đăng nhập thành công
           res.status(200).json(result[0]);
@@ -83,7 +83,7 @@ class AuthController {
           res.status(401).json({ error: "Sai tài khoản hoặc mật khẩu" });
         }
       });
-      
+
       if (!email || !password) {
         return handleResponse(
           res,
@@ -115,14 +115,15 @@ class AuthController {
 
       const token = authService.generateToken(user.idUser);
       console.log(user.fullName);
-      
+
       return handleResponse(res, 200, true, "Login successful", {
-        
-        user: { idUser: user.idUser, email: user.email , fullName: user.fullName, avatar: user.avatar},
-        
-        
+        user: {
+          idUser: user.idUser,
+          email: user.email,
+          fullName: user.fullName,
+          avatar: user.avatar,
+        },
       });
-      
     } catch (error) {
       console.error("Login error:", error);
       const status = error.status || 500;
@@ -156,7 +157,7 @@ class AuthController {
         return handleResponse(res, 409, false, "Email already exists");
       }
 
-      const birthDate = new Date(${year}-${month}-${day});
+      const birthDate = new Date(`${year}-${month}-${day}`);
       const userId = await authService.createUser({
         email,
         password,
