@@ -9,6 +9,7 @@ import routerLogin from "./Routes/authRoutes.js";
 import routerHandlePassword from "./Routes/passwordRoutes.js";
 import routerUser from "./Routes/userRouter.js";
 import postRoutes from "./Routes/postRoutes.js";
+import reactionRoutes from "./Routes/reactionRoutes.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -66,6 +67,7 @@ app.use("/", routerLogin);
 app.use("/", routerHandlePassword);
 app.use("/", routerUser);
 app.use("/api", postRoutes);
+app.use("/api/reactions", reactionRoutes);
 // Route for fetching conversation partner
 app.get("/api/conversations/partner/:currentUserId", async (req, res) => {
   try {
