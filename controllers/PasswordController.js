@@ -27,15 +27,19 @@ class PasswordController {
     const { email, otp, infoDevice } = req.body;
 
     if (!email || !otp) {
-      return handleResponse(res, 400, "fail", "Email and OTP code are required.");
+      return handleResponse(
+        res,
+        400,
+        "fail",
+        "Email and OTP code are required."
+      );
     }
-
     try {
       const [results] = await connectDB.query(
         "SELECT otp FROM account WHERE email = ?",
         [email]
       );
-
+      console.log(results[0]);
       if (results.length === 0) {
         return handleResponse(res, 404, "fail", "Email not found.");
       }
@@ -55,9 +59,19 @@ class PasswordController {
       );
 
       if (updateIsActive) {
-        return handleResponse(res, 200, "success", "OTP verified successfully.");
+        return handleResponse(
+          res,
+          200,
+          "success",
+          "OTP verified successfully."
+        );
       } else {
-        return handleResponse(res, 500, "error", "Failed to update account status.");
+        return handleResponse(
+          res,
+          500,
+          "error",
+          "Failed to update account status."
+        );
       }
     } catch (error) {
       console.error("Error verifying OTP:", error);
@@ -69,16 +83,26 @@ class PasswordController {
     const { email, newPassword } = req.body;
 
     if (!email || !newPassword) {
-      return handleResponse(res, 400, "fail", "Email and new password are required.");
+      return handleResponse(
+        res,
+        400,
+        "fail",
+        "Email and new password are required."
+      );
     }
 
     try {
       const hashedPassword = await bcrypt.hash(newPassword, 10);
-      await connectDB.query(
-        "UPDATE account SET password = ? WHERE email = ?",
-        [hashedPassword, email]
+      await connectDB.query("UPDATE account SET password = ? WHERE email = ?", [
+        hashedPassword,
+        email,
+      ]);
+      return handleResponse(
+        res,
+        200,
+        "success",
+        "Password changed successfully."
       );
-      return handleResponse(res, 200, "success", "Password changed successfully.");
     } catch (error) {
       console.error("Database error:", error);
       return handleResponse(res, 500, "error", "Internal server error.");

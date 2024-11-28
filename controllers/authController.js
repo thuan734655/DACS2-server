@@ -11,7 +11,7 @@ const SECRET_KEY = process.env.JWT_SECRET || "your-secret-key";
 const authService = {
   async findUserByEmail(email) {
     const [rows] = await connectDB.query(
-      "SELECT * FROM account WHERE email = ?",
+      "SELECT u.idUser, u.fullName, u.avatar, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?",
       [email]
     );
     return rows[0];
@@ -22,6 +22,7 @@ const authService = {
     if (!user) throw { status: 404, message: "User not found" };
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) throw { status: 401, message: "Invalid credentials" };
+
     return user;
   },
 
@@ -69,7 +70,20 @@ class AuthController {
   static async login(req, res) {
     try {
       const { email, password, ip } = req.body;
+      const query =
+      "SELECT u.idUser, u.fullName, u.avatar, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?";
 
+      connectDB.query(query, [email, password], (err, result) => {
+        if (err) return res.status(500).json({ error: "Lỗi server" });
+        
+        if (result.length > 0) {
+          // Trả về thông tin user nếu đăng nhập thành công
+          res.status(200).json(result[0]);
+        } else {
+          res.status(401).json({ error: "Sai tài khoản hoặc mật khẩu" });
+        }
+      });
+      
       if (!email || !password) {
         return handleResponse(
           res,
@@ -80,6 +94,7 @@ class AuthController {
       }
 
       const user = await authService.validateCredentials(email, password);
+      console.log(user);
 
       const needs2FA = await authService.process2FA(user, email, ip);
 
@@ -97,12 +112,14 @@ class AuthController {
       if (!user.infoDevice) {
         await updateInfoDevice(ip, email);
       }
-
-      const token = authService.generateToken(user.idUser);
+      
       return handleResponse(res, 200, true, "Login successful", {
-        token,
-        user: { id: user.idUser, email: user.email },
+        
+        user: { idUser: user.idUser, email: user.email , fullName: user.fullName, avatar: user.avatar},
+        
+        
       });
+      
     } catch (error) {
       console.error("Login error:", error);
       const status = error.status || 500;
