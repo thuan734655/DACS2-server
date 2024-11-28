@@ -1,44 +1,105 @@
 import Post from "../models/postModel.js";
+import UserModel from "../models/userModel.js";
 import handleFileWebSocket from "../utils/handleFileWebSocket.js";
+import { v4 as uuidv4 } from "uuid";
+import path from "path";
+import fs from "fs";
 
 const handleSocketEvents = (socket, io) => {
   console.log("User connected:", socket.id);
 
-  socket.on("newComment", async (data) => {
-    const { postId, user, text, listFileUrl } = data.comment;
+  socket.on("newPost", async ({ post }) => {
+    console.log("Post creation started");
+    try {
+      // Handle file uploads using existing utility
+      let mediaUrls = [];
+      if (post.listFileUrl && post.listFileUrl.length > 0) {
+        mediaUrls = handleFileWebSocket(post.listFileUrl);
+      }
 
+      // Get user info
+      const [userInfo] = await UserModel.getInfoByIdUser(post.idUser);
+
+      // Create final post object
+      const postData = {
+        text: post.text,
+        idUser: post.idUser,
+        textColor: post.textColor,
+        backgroundColor: post.backgroundColor,
+        mediaUrls,
+        likes: {
+          "👍": 0,
+          "❤️": 0,
+          "😂": 0,
+          "😢": 0,
+          "😡": 0,
+          "😲": 0,
+          "🥳": 0,
+        },
+        shares: 0,
+        comments: [],
+        createdAt: Date.now(),
+      };
+
+      // Save post to database
+      const postId = await Post.createPost(postData);
+
+      // Create response with user info
+      const postResponse = {
+        postId: postId,
+        post: postData,
+        infoUserList: {
+          [post.idUser]: { id: post.idUser, ...userInfo[0] },
+        },
+        groupedLikes: {},
+        commentCount: 0,
+      };
+
+      // Broadcast to all clients
+      io.emit("receiveNewPost", { post: postResponse });
+      console.log("New post broadcasted successfully");
+    } catch (error) {
+      console.error("Error creating post:", error);
+      socket.emit("postError", { message: "Failed to create post" });
+    }
+  });
+
+  socket.on("newComment", async ({ comment }) => {
+    const { postId, idUser, text, listFileUrl, user } = comment;
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
 
       const commentContainer = {
         postId,
-        user,
+        idUser,
         text,
         fileUrls,
         timestamp: Date.now(),
       };
       const commentId = await Post.addComment(commentContainer);
-
       const newComment = {
-        id: commentId,
+        commentId: commentId,
+        postId,
+        user: [user],
         ...commentContainer,
       };
-
-      io.emit("receiveComment", { postId, newComment });
+      console.log(Object.entries(newComment));
+      io.emit("receiveComment", { newComment });
       console.log("Bình luận đã được thêm và gửi đi:", newComment);
     } catch (error) {
       console.error("Lỗi khi thêm bình luận:", error);
     }
   });
-  socket.on("replyComment", async ({ commentId, replyData }) => {
-    const { postId, user, text, listFileUrl } = replyData;
 
+  socket.on("replyComment", async ({ commentId, replyData }) => {
+    const { postId, idUser, text, listFileUrl } = replyData;
+    console.log(replyData, commentId, 111);
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
 
       const newReplyData = {
         postId,
-        user,
+        idUser,
         text,
         fileUrls,
         timestamp: Date.now(),
@@ -58,13 +119,13 @@ const handleSocketEvents = (socket, io) => {
     }
   });
   socket.on("replyToReply", async ({ replyId, replyData }) => {
-    console.log(replyId, 123);
-    const { postId, user, text, listFileUrl } = replyData;
+    console.log(replyData, 123);
+    const { postId, idUser, text, listFileUrl } = replyData;
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
       const newReplyData = {
         postId,
-        user,
+        idUser,
         text,
         fileUrls,
         timestamp: Date.now(),
@@ -108,6 +169,12 @@ const handleSocketEvents = (socket, io) => {
         message: "Không thể cập nhật lượt thích. Vui lòng thử lại.",
       });
     }
+  });
+  socket.on("getCommentsAll", async ({ postId }) => {
+    const comments = await Post.getComments(postId);
+    console.log(comments, 123);
+    io.emit("receiveCommentsList", comments);
+    console.log("Danh sách bình luận đã được gửi đi:", comments);
   });
 
   socket.on("disconnect", () => {
