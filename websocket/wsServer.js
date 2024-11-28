@@ -1,8 +1,72 @@
 import Post from "../models/postModel.js";
+import UserModel from "../models/userModel.js";
 import handleFileWebSocket from "../utils/handleFileWebSocket.js";
+import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
+import fs from 'fs';
 
 const handleSocketEvents = (socket, io) => {
   console.log("User connected:", socket.id);
+
+  socket.on("newPost", async ({ post }) => {
+    console.log("Post creation started");
+    try {
+      // Generate unique ID for the post
+      const postId = uuidv4();
+      
+      // Handle file uploads using existing utility
+      let mediaUrls = [];
+      if (post.listFileUrl && post.listFileUrl.length > 0) {
+        mediaUrls = handleFileWebSocket(post.listFileUrl);
+      }
+
+      // Get user info
+      const [userInfo] = await UserModel.getInfoByIdUser(post.idUser);
+
+      // Create final post object
+      const postData = {
+        id: postId,
+        text: post.text,
+        idUser: post.idUser,
+        textColor: post.textColor,
+        backgroundColor: post.backgroundColor,
+        mediaUrls,
+        likes: {
+          "👍": 0,
+          "❤️": 0,
+          "😂": 0,
+          "😢": 0,
+          "😡": 0,
+          "😲": 0,
+          "🥳": 0,
+        },
+        shares: 0,
+        comments: [],
+        createdAt: Date.now()
+      };
+
+      // Save post to database
+      await Post.createPost(postData);
+
+      // Create response with user info
+      const postResponse = {
+        id: postId,
+        post: postData,
+        infoUserList: {
+          [post.idUser]: { id: post.idUser, ...userInfo[0] }
+        },
+        groupedLikes: {},
+        commentCount: 0
+      };
+
+      // Broadcast to all clients
+      io.emit("receiveNewPost", { post: postResponse });
+      console.log("New post broadcasted successfully");
+    } catch (error) {
+      console.error("Error creating post:", error);
+      socket.emit("postError", { message: "Failed to create post" });
+    }
+  });
 
   socket.on("newComment", async (data) => {
     const { postId, idUser, text, listFileUrl, user } = data.comment;
@@ -32,6 +96,11 @@ const handleSocketEvents = (socket, io) => {
       console.error("Lỗi khi thêm bình luận:", error);
     }
   });
+
+  socket.on("newComment", ({ formData }) => {
+    const { text, idUser, textColor, backgroundColor, comments } = formData;
+  });
+
   socket.on("replyComment", async ({ commentId, replyData }) => {
     const { postId, idUser, text, listFileUrl } = replyData;
     console.log(replyData, commentId, 111);
