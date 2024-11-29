@@ -366,7 +366,7 @@ class Post {
         },
         shares: 0,
         comments: [],
-        createdAt: Date.now(),
+        createdAt: originalPost.createdAt,
         isShared: true,
         isProfileShare: true,
       };
