@@ -187,10 +187,10 @@ const handleSocketEvents = (socket, io) => {
   });
 
   // Share post event
-  socket.on("sharePost", async ({ postId, idUser }) => {
+  socket.on("sharePost", async ({ postId, idUser, shareText }) => {
     try {
-      console.log("Sharing post:", { postId, idUser });
-      const result = await Post.sharePost(postId, idUser);
+      console.log("Sharing post:", { postId, idUser, shareText });
+      const result = await Post.sharePost(postId, idUser, shareText);
       
       // Lấy thông tin bài viết gốc và số lượt share mới
       const originalPost = await Post.getPostById(postId);
@@ -202,10 +202,12 @@ const handleSocketEvents = (socket, io) => {
         shareCount: originalPost.shares || 0 
       });
 
+      // Nếu người share khác với người tạo bài viết gốc, gửi thông báo
       if (originalPost && originalPost.idUser !== idUser) {
         io.to(`user_${originalPost.idUser}`).emit("postSharedNotification", {
           postId,
-          sharedBy: idUser
+          sharedBy: idUser,
+          sharedPostId: result.sharedPostId
         });
       }
 
@@ -213,7 +215,8 @@ const handleSocketEvents = (socket, io) => {
     } catch (error) {
       console.error("Error sharing post:", error);
       socket.emit("sharePostError", {
-        message: error.message
+        message: "Failed to share post",
+        error: error.message,
       });
     }
   });
