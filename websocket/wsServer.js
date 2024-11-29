@@ -78,7 +78,7 @@ const handleSocketEvents = (socket, io) => {
       const newComment = {
         commentId: commentId,
         postId,
-        user,
+        user: [user],
         ...commentContainer,
       };
       io.emit("receiveComment", { newComment });
