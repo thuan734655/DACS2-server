@@ -317,75 +317,40 @@ class Post {
     }
   }
 
-  // Share bài viết lên profile
+  // Share bài viết lên profile, chỉ lưu vào "shares-post"
   static async sharePost(originalPostId, idUser, shareText) {
     try {
-      console.log("Getting post:", originalPostId);
-      // Lấy thông tin bài viết gốc
       const originalPostRef = db.ref(`posts/${originalPostId}`);
       const snapshot = await originalPostRef.once("value");
       const originalPost = snapshot.val();
-      console.log("Original post data:", originalPost);
 
-      if (!originalPost) {
-        throw new Error("Post không tồn tại");
-      }
+      if (!originalPost) throw new Error("Post không tồn tại");
 
-      // Lấy thông tin người dùng gốc
       const [originalUser] = await UserModel.getInfoByIdUser(
         originalPost.idUser
       );
       const userInfo = { ...originalUser };
-      // Tạo bài viết được share mới
-      const sharedPostRef = db.ref("posts").push();
-      const sharedPostData = {
-        text: shareText || "", // Caption của người share
-        sharedPostContent: {
-          // Nội dung bài viết gốc
-          text: originalPost.text,
-          mediaUrls: originalPost.mediaUrls || [],
-          textColor: originalPost.textColor,
-          backgroundColor: originalPost.backgroundColor,
-          originalPostId,
-          originalUserId: originalPost.idUser,
-          originalUser: {
-            fullName: userInfo[0].fullName,
-            avatar: userInfo[0].avatar,
-          },
-        },
-        idUser, // Người share
-        sharedAt: Date.now(),
-        likes: {
-          "👍": 0,
-          "❤️": 0,
-          "😂": 0,
-          "😢": 0,
-          "😡": 0,
-          "😲": 0,
-          "🥳": 0,
-        },
-        shares: 0,
-        comments: [],
-        createdAt: originalPost.createdAt,
-        isShared: true,
-        isProfileShare: true,
-      };
 
-      console.log("Creating shared post:", sharedPostData);
-      await sharedPostRef.set(sharedPostData);
-      const sharedPostId = sharedPostRef.key;
-
-      // Lưu thông tin share vào cây shares-post
       const sharePostRef = db.ref("shares-post").push();
       const sharePostData = {
         originalPostId,
-        sharedPostId,
+        sharedPostId: sharePostRef.key,
         originalUserId: originalPost.idUser,
         sharedBy: idUser,
         shareText: shareText || "",
         sharedAt: Date.now(),
         type: "profile",
         status: "active",
+        sharedPostContent: {
+          text: originalPost.text,
+          mediaUrls: originalPost.mediaUrls || [],
+          textColor: originalPost.textColor,
+          backgroundColor: originalPost.backgroundColor,
+          originalUser: {
+            fullName: userInfo[0].fullName,
+            avatar: userInfo[0].avatar,
+          },
+        },
         interactions: {
           likes: 0,
           comments: 0,
@@ -394,23 +359,12 @@ class Post {
       };
 
       await sharePostRef.set(sharePostData);
-      console.log("Share post data saved:", sharePostData);
-
-      // Tăng số lượt share của bài viết gốc
       await originalPostRef
         .child("shares")
         .transaction((shares) => (shares || 0) + 1);
 
-      console.log("Share completed:", {
-        sharedPostId,
-        shareId: sharePostRef.key,
-      });
-      return {
-        sharedPostId,
-        shareId: sharePostRef.key,
-      };
+      return { shareId: sharePostRef.key };
     } catch (error) {
-      console.error("Error in sharePost:", error);
       throw error;
     }
   }
