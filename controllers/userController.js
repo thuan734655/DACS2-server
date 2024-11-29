@@ -51,6 +51,36 @@ class UserController {
       return handleResponse(res, 500, "error", "Internal server error.");
     }
   }
+  static async sendFriendRequest(req, res) {
+    console.log('Request body:', req.body); // Log toàn bộ request body
+    const receiverId = req.params.idUser; // ID người nhận từ params
+    const requesterId = req.body.requesterId; // ID người gửi từ body
+    console.log('Controller - Received friend request from:', requesterId, 'to:', receiverId);
+    
+    if (!requesterId || !receiverId) {
+      return handleResponse(res, 400, "fail", "Both requester ID and receiver ID are required.");
+    }
+
+    if (requesterId === receiverId) {
+      return handleResponse(res, 400, "fail", "Cannot send friend request to yourself.");
+    }
+
+    try {
+      await UserModel.sendFriendRequest(requesterId, receiverId);
+      return handleResponse(
+        res,
+        200,
+        "success",
+        "Friend request sent successfully."
+      );
+    } catch (error) {
+      console.error("Error sending friend request:", error);
+      if (error.message === 'Friend request already exists' || error.message === 'Users are already friends') {
+        return handleResponse(res, 400, "fail", error.message);
+      }
+      return handleResponse(res, 500, "error", "Internal server error.");
+    }
+  }
 }
 
 export default UserController;
