@@ -105,7 +105,39 @@ class UserController {
       return handleResponse(res, 500, "error", "Internal server error");
     }
   }
-
+  static async respondToFriendRequest(req, res) {
+    const receiver_id = req.params.userId;  // ID người nhận lời mời (người đang đăng nhập)
+    const { requester_id, accept } = req.body;  // ID người gửi lời mời và quyết định chấp nhận/từ chối
+    
+    console.log('Xử lý phản hồi lời mời kết bạn:', {
+      receiver_id,
+      requester_id,
+      accept,
+      body: req.body
+    });
+  
+    if (!receiver_id || !requester_id) {
+      return handleResponse(res, 400, "fail", "Thiếu thông tin người gửi hoặc người nhận lời mời");
+    }
+  
+    try {
+      await UserModel.respondToFriendRequest(receiver_id, requester_id, accept);
+      return handleResponse(
+        res,
+        200,
+        "success",
+        accept ? "Đã chấp nhận lời mời kết bạn" : "Đã từ chối lời mời kết bạn"
+      );
+    } catch (error) {
+      console.error("Lỗi khi phản hồi lời mời kết bạn:", {
+        error: error.message,
+        receiver_id,
+        requester_id,
+        accept
+      });
+      return handleResponse(res, 500, "error", `Lỗi máy chủ: ${error.message}`);
+    }
+  }
 }
 
 export default UserController;
