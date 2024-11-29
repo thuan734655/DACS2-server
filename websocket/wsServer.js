@@ -1,9 +1,6 @@
 import Post from "../models/postModel.js";
 import UserModel from "../models/userModel.js";
 import handleFileWebSocket from "../utils/handleFileWebSocket.js";
-import { v4 as uuidv4 } from "uuid";
-import path from "path";
-import fs from "fs";
 
 const handleSocketEvents = (socket, io) => {
   console.log("User connected:", socket.id);
@@ -11,9 +8,6 @@ const handleSocketEvents = (socket, io) => {
   socket.on("newPost", async ({ post }) => {
     console.log("Post creation started");
     try {
-      // Generate unique ID for the post
-      const postId = uuidv4();
-
       // Handle file uploads using existing utility
       let mediaUrls = [];
       if (post.listFileUrl && post.listFileUrl.length > 0) {
@@ -25,7 +19,6 @@ const handleSocketEvents = (socket, io) => {
 
       // Create final post object
       const postData = {
-        id: postId,
         text: post.text,
         idUser: post.idUser,
         textColor: post.textColor,
@@ -46,11 +39,11 @@ const handleSocketEvents = (socket, io) => {
       };
 
       // Save post to database
-      await Post.createPost(postData);
+      const postId = await Post.createPost(postData);
 
       // Create response with user info
       const postResponse = {
-        id: postId,
+        postId: postId,
         post: postData,
         infoUserList: {
           [post.idUser]: { id: post.idUser, ...userInfo[0] },
@@ -96,7 +89,7 @@ const handleSocketEvents = (socket, io) => {
   });
 
   socket.on("replyComment", async ({ commentId, replyData }) => {
-    const { postId, idUser, text, listFileUrl } = replyData;
+    const { postId, idUser, text, listFileUrl, user } = replyData;
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
 
@@ -111,7 +104,8 @@ const handleSocketEvents = (socket, io) => {
 
       const newReply = {
         id: replyId,
-        ...replyData,
+        user: [user],
+        ...newReplyData,
         timestamp: Date.now(),
       };
 
@@ -186,6 +180,7 @@ const handleSocketEvents = (socket, io) => {
   });
 
   socket.on("getCommentsAll", async ({ postId }) => {
+    console.log(postId);
     const comments = await Post.getComments(postId);
     io.emit("receiveCommentsList", comments);
     console.log("Danh sách bình luận đã được gửi đi:", comments);
