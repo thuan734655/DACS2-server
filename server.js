@@ -64,7 +64,7 @@ app.use("/images", express.static(path.join(__dirname, "images")));
 
 app.use("/", routerLogin);
 app.use("/", routerHandlePassword);
-app.use("/", routerUser);
+app.use("/api", routerUser);
 app.use("/api", postRoutes);
 // Route for fetching conversation partner
 app.get("/api/conversations/partner/:currentUserId", async (req, res) => {
