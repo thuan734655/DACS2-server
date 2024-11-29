@@ -1,0 +1,256 @@
+{
+  "calls": {
+    "Hoang Phi_Thuận": {
+      "caller": {
+        "signal": {
+          "sdp": "v=0\r\no=- 5301282885961195892 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\na=group:BUNDLE 0 1 2\r\na=extmap-allow-mixed\r\na=msid-semantic: WMS ca3908c9-6fc4-4784-8f34-7f671a5cf263\r\nm=audio 64484 UDP/TLS/RTP/SAVPF 111 63 9 0 8 13 110 126\r\nc=IN IP4 14.236.23.195\r\na=rtcp:9 IN IP4 0.0.0.0\r\na=candidate:779821784 1 udp 2122260223 10.50.42.168 64484 typ host generation 0 network-id 1 network-cost 10\r\na=candidate:2167522278 1 udp 1686052607 14.236.23.195 64484 typ srflx raddr 10.50.42.168 rport 64484 generation 0 network-id 1 network-cost 10\r\na=candidate:2167522278 1 udp 1686052607 113.160.225.45 64484 typ srflx raddr 10.50.42.168 rport 64484 generation 0 network-id 1 network-cost 10\r\na=candidate:3503421004 1 tcp 1518280447 10.50.42.168 9 typ host tcptype active generation 0 network-id 1 network-cost 10\r\na=ice-ufrag:w1As\r\na=ice-pwd:f7QEyALjz8pLE4cg+T/+6CPi\r\na=fingerprint:sha-256 17:0F:98:77:E5:16:2A:9B:CA:EC:F3:15:00:97:9C:6B:1B:FA:AB:40:57:00:39:6E:33:58:02:8B:A8:05:BE:FF\r\na=setup:actpass\r\na=mid:0\r\na=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level\r\na=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\na=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=sendrecv\r\na=msid:ca3908c9-6fc4-4784-8f34-7f671a5cf263 9c1c2c98-b1f3-482b-8b16-debeecf91508\r\na=rtcp-mux\r\na=rtcp-rsize\r\na=rtpmap:111 opus/48000/2\r\na=rtcp-fb:111 transport-cc\r\na=fmtp:111 minptime=10;useinbandfec=1\r\na=rtpmap:63 red/48000/2\r\na=fmtp:63 111/111\r\na=rtpmap:9 G722/8000\r\na=rtpmap:0 PCMU/8000\r\na=rtpmap:8 PCMA/8000\r\na=rtpmap:13 CN/8000\r\na=rtpmap:110 telephone-event/48000\r\na=rtpmap:126 telephone-event/8000\r\na=ssrc:2127427630 cname:2umwPibtj8TC6RrC\r\na=ssrc:2127427630 msid:ca3908c9-6fc4-4784-8f34-7f671a5cf263 9c1c2c98-b1f3-482b-8b16-debeecf91508\r\nm=video 64485 UDP/TLS/RTP/SAVPF 96 97 102 103 104 105 106 107 108 109 127 125 39 40 45 46 98 99 100 101 112 113 116 117 118\r\nc=IN IP4 14.176.232.239\r\na=rtcp:9 IN IP4 0.0.0.0\r\na=candidate:779821784 1 udp 2122260223 10.50.42.168 64485 typ host generation 0 network-id 1 network-cost 10\r\na=candidate:2167522278 1 udp 1686052607 14.176.232.239 64485 typ srflx raddr 10.50.42.168 rport 64485 generation 0 network-id 1 network-cost 10\r\na=candidate:2167522278 1 udp 1686052607 14.236.23.187 64485 typ srflx raddr 10.50.42.168 rport 64485 generation 0 network-id 1 network-cost 10\r\na=candidate:3503421004 1 tcp 1518280447 10.50.42.168 9 typ host tcptype active generation 0 network-id 1 network-cost 10\r\na=ice-ufrag:w1As\r\na=ice-pwd:f7QEyALjz8pLE4cg+T/+6CPi\r\na=fingerprint:sha-256 17:0F:98:77:E5:16:2A:9B:CA:EC:F3:15:00:97:9C:6B:1B:FA:AB:40:57:00:39:6E:33:58:02:8B:A8:05:BE:FF\r\na=setup:actpass\r\na=mid:1\r\na=extmap:14 urn:ietf:params:rtp-hdrext:toffset\r\na=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\na=extmap:13 urn:3gpp:video-orientation\r\na=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\na=extmap:5 http://www.webrtc.org/experiments/rtp-hdrext/playout-delay\r\na=extmap:6 http://www.webrtc.org/experiments/rtp-hdrext/video-content-type\r\na=extmap:7 http://www.webrtc.org/experiments/rtp-hdrext/video-timing\r\na=extmap:8 http://www.webrtc.org/experiments/rtp-hdrext/color-space\r\na=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\na=extmap:10 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\na=extmap:11 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\na=sendrecv\r\na=msid:ca3908c9-6fc4-4784-8f34-7f671a5cf263 c36846c8-0046-47e5-841a-2dbe0fda4d9a\r\na=rtcp-mux\r\na=rtcp-rsize\r\na=rtpmap:96 VP8/90000\r\na=rtcp-fb:96 goog-remb\r\na=rtcp-fb:96 transport-cc\r\na=rtcp-fb:96 ccm fir\r\na=rtcp-fb:96 nack\r\na=rtcp-fb:96 nack pli\r\na=rtpmap:97 rtx/90000\r\na=fmtp:97 apt=96\r\na=rtpmap:102 H264/90000\r\na=rtcp-fb:102 goog-remb\r\na=rtcp-fb:102 transport-cc\r\na=rtcp-fb:102 ccm fir\r\na=rtcp-fb:102 nack\r\na=rtcp-fb:102 nack pli\r\na=fmtp:102 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f\r\na=rtpmap:103 rtx/90000\r\na=fmtp:103 apt=102\r\na=rtpmap:104 H264/90000\r\na=rtcp-fb:104 goog-remb\r\na=rtcp-fb:104 transport-cc\r\na=rtcp-fb:104 ccm fir\r\na=rtcp-fb:104 nack\r\na=rtcp-fb:104 nack pli\r\na=fmtp:104 level-asymmetry-allowed=1;packetization-mode=0;profile-level-id=42001f\r\na=rtpmap:105 rtx/90000\r\na=fmtp:105 apt=104\r\na=rtpmap:106 H264/90000\r\na=rtcp-fb:106 goog-remb\r\na=rtcp-fb:106 transport-cc\r\na=rtcp-fb:106 ccm fir\r\na=rtcp-fb:106 nack\r\na=rtcp-fb:106 nack pli\r\na=fmtp:106 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f\r\na=rtpmap:107 rtx/90000\r\na=fmtp:107 apt=106\r\na=rtpmap:108 H264/90000\r\na=rtcp-fb:108 goog-remb\r\na=rtcp-fb:108 transport-cc\r\na=rtcp-fb:108 ccm fir\r\na=rtcp-fb:108 nack\r\na=rtcp-fb:108 nack pli\r\na=fmtp:108 level-asymmetry-allowed=1;packetization-mode=0;profile-level-id=42e01f\r\na=rtpmap:109 rtx/90000\r\na=fmtp:109 apt=108\r\na=rtpmap:127 H264/90000\r\na=rtcp-fb:127 goog-remb\r\na=rtcp-fb:127 transport-cc\r\na=rtcp-fb:127 ccm fir\r\na=rtcp-fb:127 nack\r\na=rtcp-fb:127 nack pli\r\na=fmtp:127 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=4d001f\r\na=rtpmap:125 rtx/90000\r\na=fmtp:125 apt=127\r\na=rtpmap:39 H264/90000\r\na=rtcp-fb:39 goog-remb\r\na=rtcp-fb:39 transport-cc\r\na=rtcp-fb:39 ccm fir\r\na=rtcp-fb:39 nack\r\na=rtcp-fb:39 nack pli\r\na=fmtp:39 level-asymmetry-allowed=1;packetization-mode=0;profile-level-id=4d001f\r\na=rtpmap:40 rtx/90000\r\na=fmtp:40 apt=39\r\na=rtpmap:45 AV1/90000\r\na=rtcp-fb:45 goog-remb\r\na=rtcp-fb:45 transport-cc\r\na=rtcp-fb:45 ccm fir\r\na=rtcp-fb:45 nack\r\na=rtcp-fb:45 nack pli\r\na=fmtp:45 level-idx=5;profile=0;tier=0\r\na=rtpmap:46 rtx/90000\r\na=fmtp:46 apt=45\r\na=rtpmap:98 VP9/90000\r\na=rtcp-fb:98 goog-remb\r\na=rtcp-fb:98 transport-cc\r\na=rtcp-fb:98 ccm fir\r\na=rtcp-fb:98 nack\r\na=rtcp-fb:98 nack pli\r\na=fmtp:98 profile-id=0\r\na=rtpmap:99 rtx/90000\r\na=fmtp:99 apt=98\r\na=rtpmap:100 VP9/90000\r\na=rtcp-fb:100 goog-remb\r\na=rtcp-fb:100 transport-cc\r\na=rtcp-fb:100 ccm fir\r\na=rtcp-fb:100 nack\r\na=rtcp-fb:100 nack pli\r\na=fmtp:100 profile-id=2\r\na=rtpmap:101 rtx/90000\r\na=fmtp:101 apt=100\r\na=rtpmap:112 H264/90000\r\na=rtcp-fb:112 goog-remb\r\na=rtcp-fb:112 transport-cc\r\na=rtcp-fb:112 ccm fir\r\na=rtcp-fb:112 nack\r\na=rtcp-fb:112 nack pli\r\na=fmtp:112 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=64001f\r\na=rtpmap:113 rtx/90000\r\na=fmtp:113 apt=112\r\na=rtpmap:116 red/90000\r\na=rtpmap:117 rtx/90000\r\na=fmtp:117 apt=116\r\na=rtpmap:118 ulpfec/90000\r\na=ssrc-group:FID 3767851802 1214601349\r\na=ssrc:3767851802 cname:2umwPibtj8TC6RrC\r\na=ssrc:3767851802 msid:ca3908c9-6fc4-4784-8f34-7f671a5cf263 c36846c8-0046-47e5-841a-2dbe0fda4d9a\r\na=ssrc:1214601349 cname:2umwPibtj8TC6RrC\r\na=ssrc:1214601349 msid:ca3908c9-6fc4-4784-8f34-7f671a5cf263 c36846c8-0046-47e5-841a-2dbe0fda4d9a\r\nm=application 64486 UDP/DTLS/SCTP webrtc-datachannel\r\nc=IN IP4 14.236.23.195\r\na=candidate:779821784 1 udp 2122260223 10.50.42.168 64486 typ host generation 0 network-id 1 network-cost 10\r\na=candidate:2167522278 1 udp 1686052607 14.236.23.195 64486 typ srflx raddr 10.50.42.168 rport 64486 generation 0 network-id 1 network-cost 10\r\na=candidate:2167522278 1 udp 1686052607 14.176.232.239 64486 typ srflx raddr 10.50.42.168 rport 64486 generation 0 network-id 1 network-cost 10\r\na=candidate:3503421004 1 tcp 1518280447 10.50.42.168 9 typ host tcptype active generation 0 network-id 1 network-cost 10\r\na=ice-ufrag:w1As\r\na=ice-pwd:f7QEyALjz8pLE4cg+T/+6CPi\r\na=fingerprint:sha-256 17:0F:98:77:E5:16:2A:9B:CA:EC:F3:15:00:97:9C:6B:1B:FA:AB:40:57:00:39:6E:33:58:02:8B:A8:05:BE:FF\r\na=setup:actpass\r\na=mid:2\r\na=sctp-port:5000\r\na=max-message-size:262144\r\n",
+          "type": "offer"
+        },
+        "user": "YhCKV9luw9fbSVvOJe4jAlTLEPB3"
+      }
+    }
+  },
+  "commentsList": {
+    "-OCpJ2d4sfWuZBzmmGn6": {
+      "idUser": "193",
+      "postId": "-OCpJ1_e9VFZPBY0tGVA",
+      "reactions": {
+        "😂": 1
+      },
+      "replies": [
+        "-OCpJNnS1HeK8_mkceZJ"
+      ],
+      "text": "dfbd",
+      "timestamp": 1732840012300,
+      "userReactions": {
+        "undefined": "😂"
+      }
+    },
+    "-OCpK2j-h2IlWSWqsxlr": {
+      "idUser": "193",
+      "postId": "-OCpK1H-dfTzmyrcA_xg",
+      "replies": [
+        "-OCpKCnMzacz4u1NF1gM"
+      ],
+      "text": "vsdvsd",
+      "timestamp": 1732840274811
+    },
+    "-OCpKF58NoLFOfj91Uxi": {
+      "fileUrls": [
+        "/images/1732840325439_d82adc0a-ceba-435a-86e7-33492077c1b6.jpg"
+      ],
+      "idUser": "193",
+      "postId": "-OCpK1H-dfTzmyrcA_xg",
+      "replies": [
+        "-OCpKOo8wZKLx5XqMFpC"
+      ],
+      "text": "vsd",
+      "timestamp": 1732840325444
+    },
+    "-OCpKKMYBRfYsty27ofE": {
+      "fileUrls": [
+        "/images/1732840347035_94c0dee6-e7db-4171-b450-ece5d65f02f5.jpg"
+      ],
+      "idUser": "193",
+      "postId": "-OCpK1H-dfTzmyrcA_xg",
+      "text": "vsdvsd",
+      "timestamp": 1732840347038
+    }
+  },
+  "posts": {
+    "-OCpJ1_e9VFZPBY0tGVA": {
+      "backgroundColor": "#ffffff",
+      "comments": [
+        "-OCpJ2d4sfWuZBzmmGn6"
+      ],
+      "createdAt": 1732840007985,
+      "idUser": "193",
+      "likedBy": {
+        "193": "🥳"
+      },
+      "likes": {
+        "❤️": 0,
+        "👍": 0,
+        "😡": 0,
+        "😢": 0,
+        "😲": 0,
+        "🥳": 1
+      },
+      "postId": "-OCpJ1_e9VFZPBY0tGVA",
+      "shares": 0,
+      "text": "bdfbdf",
+      "textColor": "#000000"
+    },
+    "-OCpK1H-dfTzmyrcA_xg": {
+      "backgroundColor": "#ffffff",
+      "comments": [
+        "-OCpK2j-h2IlWSWqsxlr",
+        "-OCpKF58NoLFOfj91Uxi",
+        "-OCpKKMYBRfYsty27ofE"
+      ],
+      "createdAt": 1732840268858,
+      "idUser": "193",
+      "likedBy": {
+        "193": "😂"
+      },
+      "likes": {
+        "❤️": 0,
+        "👍": 0,
+        "😂": 1,
+        "😡": 0,
+        "😢": 0,
+        "😲": 0,
+        "🥳": 0
+      },
+      "mediaUrls": [
+        "/images/1732840268839_7c9ad233-dce9-43ce-9610-3a9b64a0faa3.png",
+        "/images/1732840268841_a690ee81-94e9-4f54-bab6-13a2065a2969.jpg",
+        "/images/1732840268843_ae4e0fd6-8083-45b0-b1bf-1a1013b43fef.png",
+        "/images/1732840268845_f17af8ef-d9e7-4609-b0bb-33e8dde8e68f.png",
+        "/images/1732840268848_ed818b45-1b34-495a-a3c6-bf25572d2f83.png"
+      ],
+      "postId": "-OCpK1H-dfTzmyrcA_xg",
+      "shares": 0,
+      "text": "svd",
+      "textColor": "#000000"
+    }
+  },
+  "replies": {
+    "-OCpJ2d4sfWuZBzmmGn6": {
+      "replies": [
+        "-OCpJ45_c3KQAWtfAego",
+        "-OCpJ59_PuP-v7DuP-Rt",
+        "-OCpJ7S7wvENgulT8G8u",
+        "-OCpJGATDbIt3hzkfy_j"
+      ]
+    },
+    "-OCpJ45_c3KQAWtfAego": {
+      "idUser": "193",
+      "postId": "-OCpJ1_e9VFZPBY0tGVA",
+      "replyId": "-OCpJ45_c3KQAWtfAego",
+      "text": "undefined: bdfbfd",
+      "timestamp": 1732840018284
+    },
+    "-OCpJ59_PuP-v7DuP-Rt": {
+      "idUser": "193",
+      "postId": "-OCpJ1_e9VFZPBY0tGVA",
+      "replyId": "-OCpJ59_PuP-v7DuP-Rt",
+      "text": "bdbdfb",
+      "timestamp": 1732840022636
+    },
+    "-OCpJ7S7wvENgulT8G8u": {
+      "idUser": "193",
+      "postId": "-OCpJ1_e9VFZPBY0tGVA",
+      "replyId": "-OCpJ7S7wvENgulT8G8u",
+      "text": "vsd wvds: dbdf",
+      "timestamp": 1732840032015
+    },
+    "-OCpJGATDbIt3hzkfy_j": {
+      "idUser": "193",
+      "postId": "-OCpJ1_e9VFZPBY0tGVA",
+      "replyId": "-OCpJGATDbIt3hzkfy_j",
+      "text": "vsd wvds: vsdvsd",
+      "timestamp": 1732840067742
+    },
+    "-OCpJNnS1HeK8_mkceZJ": {
+      "commentId": "-OCpJ2d4sfWuZBzmmGn6",
+      "idUser": "193",
+      "postId": "-OCpJ1_e9VFZPBY0tGVA",
+      "replies": [
+        "-OCpJfGBI4qgus_2H2Wy"
+      ],
+      "replyId": "-OCpJNnS1HeK8_mkceZJ",
+      "text": "vsd wvds: vsdvsd",
+      "timestamp": 1732840098973
+    },
+    "-OCpJfGBI4qgus_2H2Wy": {
+      "idUser": "193",
+      "postId": "-OCpJ1_e9VFZPBY0tGVA",
+      "replies": [
+        "-OCpJj79dJ5fvDwr0r35"
+      ],
+      "replyId": "-OCpJfGBI4qgus_2H2Wy",
+      "text": "vsd wvds: vsvsd",
+      "timestamp": 1732840174599
+    },
+    "-OCpJj79dJ5fvDwr0r35": {
+      "idUser": "193",
+      "postId": "-OCpJ1_e9VFZPBY0tGVA",
+      "replies": [
+        "-OCpJlZbq-PuzpdvS8M_"
+      ],
+      "replyId": "-OCpJj79dJ5fvDwr0r35",
+      "text": "vsd wvds: vsvsdvsd",
+      "timestamp": 1732840190405
+    },
+    "-OCpJlZbq-PuzpdvS8M_": {
+      "fileUrls": [
+        "/images/1732840200412_1e265929-5161-484b-b154-6de52f02d074.png"
+      ],
+      "idUser": "193",
+      "postId": "-OCpJ1_e9VFZPBY0tGVA",
+      "replies": [
+        "-OCpJnd-vE0jveunyEUN"
+      ],
+      "replyId": "-OCpJlZbq-PuzpdvS8M_",
+      "text": "sd vsdv: ",
+      "timestamp": 1732840200418
+    },
+    "-OCpJnd-vE0jveunyEUN": {
+      "idUser": "193",
+      "postId": "-OCpJ1_e9VFZPBY0tGVA",
+      "replyId": "-OCpJnd-vE0jveunyEUN",
+      "text": "sd vsdv: cascas",
+      "timestamp": 1732840208891
+    },
+    "-OCpKCnMzacz4u1NF1gM": {
+      "commentId": "-OCpK2j-h2IlWSWqsxlr",
+      "idUser": "193",
+      "postId": "-OCpK1H-dfTzmyrcA_xg",
+      "replies": [
+        "-OCpKYuF5MABZPNzYPNV"
+      ],
+      "replyId": "-OCpKCnMzacz4u1NF1gM",
+      "text": "vsd wvds: vsvsd",
+      "timestamp": 1732840316049
+    },
+    "-OCpKOo8wZKLx5XqMFpC": {
+      "commentId": "-OCpKF58NoLFOfj91Uxi",
+      "idUser": "193",
+      "postId": "-OCpK1H-dfTzmyrcA_xg",
+      "replyId": "-OCpKOo8wZKLx5XqMFpC",
+      "text": "undefined: vsvsd",
+      "timestamp": 1732840365252
+    },
+    "-OCpKYuF5MABZPNzYPNV": {
+      "idUser": "193",
+      "postId": "-OCpK1H-dfTzmyrcA_xg",
+      "replies": [
+        "-OCpKa0ne-NiPLc2MrNo"
+      ],
+      "replyId": "-OCpKYuF5MABZPNzYPNV",
+      "text": "vsd wvds: sdgsdgd",
+      "timestamp": 1732840406603
+    },
+    "-OCpKa0ne-NiPLc2MrNo": {
+      "fileUrls": [
+        "/images/1732840415275_5e395055-bc9c-4ac5-9454-8588d53690fd.png"
+      ],
+      "idUser": "193",
+      "postId": "-OCpK1H-dfTzmyrcA_xg",
+      "replies": [
+        "-OCpKbpGRIAg7iy40JLP"
+      ],
+      "replyId": "-OCpKa0ne-NiPLc2MrNo",
+      "text": "sd vsdv: svsdv",
+      "timestamp": 1732840415278
+    },
+    "-OCpKbpGRIAg7iy40JLP": {
+      "idUser": "193",
+      "postId": "-OCpK1H-dfTzmyrcA_xg",
+      "replyId": "-OCpKbpGRIAg7iy40JLP",
+      "text": "sd vsdv: vsdvsd",
+      "timestamp": 1732840422668
+    }
+  }
+}

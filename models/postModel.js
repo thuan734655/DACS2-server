@@ -236,7 +236,7 @@ class Post {
           // Nếu không có trả lời, trả về mảng rỗng
           if (!replyIds || replyIds.length === 0) return [];
 
-          // Dùng Promise.all để xử lý tất cả các reply đồng thời
+          // Dùng Promise.all để xử lý tất cả các reply đồng thởi
           const replies = await Promise.all(
             replyIds.map(async (replyId) => {
               // Lấy dữ liệu của từng reply từ "replies/{replyId}"
@@ -266,7 +266,7 @@ class Post {
           throw error;
         }
       };
-      // Sử dụng Promise.all để xử lý tất cả các comment đồng thời
+      // Sử dụng Promise.all để xử lý tất cả các comment đồng thởi
       return await Promise.all(
         commentIds.map(async (commentId) => {
           // Lấy dữ liệu của bình luận từ "commentsList/{commentId}"
@@ -313,6 +313,321 @@ class Post {
       );
     } catch (error) {
       console.error("Error getting replies:", error);
+      throw error;
+    }
+  }
+
+  // Share bài viết lên profile
+  static async sharePost(originalPostId, idUser) {
+    try {
+      console.log("Getting post:", originalPostId);
+      // Lấy thông tin bài viết gốc
+      const originalPostRef = db.ref(`posts/${originalPostId}`);
+      const snapshot = await originalPostRef.once("value");
+      const originalPost = snapshot.val();
+      console.log("Original post data:", originalPost);
+
+      if (!originalPost) {
+        throw new Error("Post không tồn tại");
+      }
+
+      // Tạo bài viết được share mới
+      const sharedPostRef = db.ref("posts").push();
+      const sharedPostData = {
+        text: originalPost.text,
+        mediaUrls: originalPost.mediaUrls || [],
+        idUser, // Người share
+        textColor: originalPost.textColor,
+        backgroundColor: originalPost.backgroundColor,
+        originalPostId,
+        originalUserId: originalPost.idUser,
+        sharedAt: Date.now(),
+        likes: {
+          "👍": 0,
+          "❤️": 0,
+          "😂": 0,
+          "😢": 0,
+          "😡": 0,
+          "😲": 0,
+          "🥳": 0,
+        },
+        shares: 0,
+        comments: [],
+        createdAt: Date.now(),
+        isShared: true,
+        isProfileShare: true // Đánh dấu là share lên profile
+      };
+
+      console.log("Creating shared post:", sharedPostData);
+      await sharedPostRef.set(sharedPostData);
+      const sharedPostId = sharedPostRef.key;
+
+      // Lưu thông tin share vào cây shares-post
+      const sharePostRef = db.ref("shares-post").push();
+      const sharePostData = {
+        originalPostId,
+        sharedPostId,
+        originalUserId: originalPost.idUser,
+        sharedBy: idUser,
+        sharedAt: Date.now(),
+        type: "profile", // Loại share (profile/group/...)
+        status: "active",
+        interactions: {
+          likes: 0,
+          comments: 0,
+          shares: 0
+        }
+      };
+      
+      await sharePostRef.set(sharePostData);
+      console.log("Share post data saved:", sharePostData);
+
+      // Tăng số lượt share của bài viết gốc
+      await originalPostRef.child("shares").transaction(shares => (shares || 0) + 1);
+
+      console.log("Share completed:", { sharedPostId, shareId: sharePostRef.key });
+      return {
+        sharedPostId,
+        shareId: sharePostRef.key
+      };
+    } catch (error) {
+      console.error("Error in sharePost:", error);
+      throw error;
+    }
+  }
+
+  // Lấy thông tin bài viết theo ID
+  static async getPostById(postId) {
+    try {
+      console.log("Getting post by id:", postId);
+      const postRef = db.ref(`posts/${postId}`);
+      const snapshot = await postRef.once("value");
+      const post = snapshot.val();
+      console.log("Post data:", post);
+      return post;
+    } catch (error) {
+      console.error("Error getting post:", error);
+      throw error;
+    }
+  }
+
+  // Lấy thông tin share
+  static async getShareInfo(shareId) {
+    try {
+      const shareRef = db.ref(`shares/${shareId}`);
+      const snapshot = await shareRef.once("value");
+      const share = snapshot.val();
+
+      if (!share) {
+        throw new Error("Share không tồn tại");
+      }
+
+      return share;
+    } catch (error) {
+      console.error("Error getting share info:", error);
+      throw error;
+    }
+  }
+
+  // Lấy danh sách bài viết được share với user
+  static async getSharedPosts(userId) {
+    try {
+      const sharesRef = db.ref("shares");
+      const snapshot = await sharesRef
+        .orderByChild("sharedWith")
+        .equalTo(userId)
+        .once("value");
+      
+      const shares = [];
+      const sharesData = snapshot.val() || {};
+
+      for (const shareId in sharesData) {
+        const share = sharesData[shareId];
+        if (share.status === "active") {
+          // Lấy thông tin bài viết được share
+          const sharedPostRef = db.ref(`posts/${share.sharedPostId}`);
+          const sharedPostSnapshot = await sharedPostRef.once("value");
+          const sharedPost = sharedPostSnapshot.val();
+
+          if (sharedPost) {
+            // Lấy thông tin người share
+            const [sharedByUser] = await UserModel.getInfoByIdUser(share.sharedBy);
+
+            shares.push({
+              shareId,
+              ...share,
+              post: sharedPost,
+              sharedByUser
+            });
+          }
+        }
+      }
+
+      return shares;
+    } catch (error) {
+      console.error("Error getting shared posts:", error);
+      throw error;
+    }
+  }
+
+  // Hủy share bài viết
+  static async revokeShare(shareId) {
+    try {
+      const shareRef = db.ref(`shares/${shareId}`);
+      const snapshot = await shareRef.once("value");
+      const share = snapshot.val();
+
+      if (!share) {
+        throw new Error("Share không tồn tại");
+      }
+
+      // Cập nhật trạng thái share
+      await shareRef.update({
+        status: "revoked",
+        revokedAt: Date.now()
+      });
+
+      // Giảm số lượt share của bài viết gốc
+      const originalPostRef = db.ref(`posts/${share.postId}`);
+      await originalPostRef.child("shares").transaction(shares => Math.max((shares || 0) - 1, 0));
+
+      return true;
+    } catch (error) {
+      console.error("Error revoking share:", error);
+      throw error;
+    }
+  }
+
+  // Lấy danh sách bài viết được share bởi user
+  static async getSharedPostsByUser(idUser) {
+    try {
+      const sharesRef = db.ref("shares-post");
+      const snapshot = await sharesRef
+        .orderByChild("sharedBy")
+        .equalTo(idUser)
+        .once("value");
+      
+      const shares = [];
+      snapshot.forEach(childSnapshot => {
+        shares.push({
+          shareId: childSnapshot.key,
+          ...childSnapshot.val()
+        });
+      });
+
+      return shares;
+    } catch (error) {
+      console.error("Error getting shared posts:", error);
+      throw error;
+    }
+  }
+
+  // Lấy danh sách shares của một bài viết
+  static async getPostShares(postId) {
+    try {
+      const sharesRef = db.ref("shares-post");
+      const snapshot = await sharesRef
+        .orderByChild("originalPostId")
+        .equalTo(postId)
+        .once("value");
+      
+      const shares = [];
+      snapshot.forEach(childSnapshot => {
+        shares.push({
+          shareId: childSnapshot.key,
+          ...childSnapshot.val()
+        });
+      });
+
+      return shares;
+    } catch (error) {
+      console.error("Error getting post shares:", error);
+      throw error;
+    }
+  }
+
+  // Cập nhật tương tác trên bài share
+  static async updateShareInteractions(shareId, type, value) {
+    try {
+      const shareRef = db.ref(`shares-post/${shareId}/interactions/${type}`);
+      await shareRef.transaction(current => (current || 0) + value);
+    } catch (error) {
+      console.error("Error updating share interactions:", error);
+      throw error;
+    }
+  }
+
+  // Lấy danh sách bài viết của user được share bởi người khác
+  static async getPostsSharedByOthers(userId) {
+    try {
+      const sharesRef = db.ref('shares-post');
+      const snapshot = await sharesRef
+        .orderByChild('originalUserId')
+        .equalTo(userId)
+        .once('value');
+
+      const shares = [];
+      const posts = [];
+      const users = new Set();
+
+      snapshot.forEach((childSnapshot) => {
+        const share = childSnapshot.val();
+        if (share.sharedBy !== userId) { // Chỉ lấy bài share bởi người khác
+          shares.push({
+            ...share,
+            shareId: childSnapshot.key
+          });
+          users.add(share.sharedBy);
+          users.add(share.originalUserId);
+        }
+      });
+
+      // Lấy thông tin user
+      const userInfoList = {};
+      await Promise.all(
+        Array.from(users).map(async (uid) => {
+          const userSnapshot = await db
+            .ref(`users/${uid}`)
+            .once('value');
+          userInfoList[uid] = userSnapshot.val();
+        })
+      );
+
+      // Lấy thông tin bài viết gốc
+      await Promise.all(
+        shares.map(async (share) => {
+          const postSnapshot = await db
+            .ref(`posts/${share.originalPostId}`)
+            .once('value');
+          
+          const post = postSnapshot.val();
+          if (post) {
+            // Lấy số lượt like và comment
+            const likesSnapshot = await db
+              .ref(`likes-post/${share.originalPostId}`)
+              .once('value');
+            const commentsSnapshot = await db
+              .ref(`comments-post/${share.originalPostId}`)
+              .once('value');
+
+            posts.push({
+              post: {
+                ...post,
+                postId: share.originalPostId
+              },
+              sharedAt: share.sharedAt,
+              sharedBy: userInfoList[share.sharedBy],
+              infoUserList: userInfoList,
+              groupedLikes: likesSnapshot.val() || {},
+              commentCount: commentsSnapshot.numChildren() || 0
+            });
+          }
+        })
+      );
+
+      return posts.sort((a, b) => b.sharedAt - a.sharedAt);
+    } catch (error) {
+      console.error('Error in getPostsSharedByOthers:', error);
       throw error;
     }
   }

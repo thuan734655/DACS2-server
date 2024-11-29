@@ -186,6 +186,59 @@ const handleSocketEvents = (socket, io) => {
     console.log("Danh sách bình luận đã được gửi đi:", comments);
   });
 
+  // Share post event
+  socket.on("sharePost", async ({ postId, idUser }) => {
+    try {
+      console.log("Sharing post:", { postId, idUser });
+      const result = await Post.sharePost(postId, idUser);
+      
+      // Lấy thông tin bài viết gốc và số lượt share mới
+      const originalPost = await Post.getPostById(postId);
+      console.log("Original post:", originalPost);
+
+      // Emit event cập nhật số lượt share cho tất cả client
+      io.emit("postShared", { 
+        postId,
+        shareCount: originalPost.shares || 0 
+      });
+
+      if (originalPost && originalPost.idUser !== idUser) {
+        io.to(`user_${originalPost.idUser}`).emit("postSharedNotification", {
+          postId,
+          sharedBy: idUser
+        });
+      }
+
+      socket.emit("sharePostSuccess", result);
+    } catch (error) {
+      console.error("Error sharing post:", error);
+      socket.emit("sharePostError", {
+        message: error.message
+      });
+    }
+  });
+
+  // Revoke share event
+  socket.on("revokeShare", async ({ shareId }) => {
+    try {
+      const shareInfo = await Post.getShareInfo(shareId);
+      await Post.revokeShare(shareId);
+
+      // Thông báo cho người được share
+      io.to(`user_${shareInfo.sharedWith}`).emit("shareRevoked", {
+        shareId,
+        postId: shareInfo.postId
+      });
+
+      socket.emit("revokeShareSuccess", { shareId });
+    } catch (error) {
+      console.error("Error revoking share:", error);
+      socket.emit("revokeShareError", {
+        message: error.message
+      });
+    }
+  });
+
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
   });
