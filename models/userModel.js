@@ -53,6 +53,24 @@ class UserModel {
     const result = await connectDB.query(sql, [requesterId, receiverId]);
     return result;
   }
+  static async getFriendRequests(userId) {
+    const sql = `
+      SELECT 
+        fr.*,
+        u.fullName,
+        u.avatar,
+        u.idUser as requester_id
+      FROM friend_requests fr
+      JOIN user u ON fr.requester_id = u.idUser
+      WHERE fr.receiver_id = ? AND fr.status = 'pending'
+      ORDER BY fr.created_at DESC
+    `;
+    console.log('Getting friend requests for userId:', userId);
+    const [result] = await connectDB.query(sql, [userId]);
+    console.log('Friend requests result:', result);
+    return result;
+  }
+
 }
 
 export default UserModel;

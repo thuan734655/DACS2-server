@@ -81,6 +81,31 @@ class UserController {
       return handleResponse(res, 500, "error", "Internal server error.");
     }
   }
+  static async getFriendRequests(req, res) {
+    const userId = req.params.userId;
+    console.log('Getting friend requests for user:', userId);
+
+    if (!userId) {
+      return handleResponse(res, 400, "fail", "userId là bắt buộc");
+    }
+
+    try {
+      const friendRequests = await UserModel.getFriendRequests(userId);
+      console.log('Found friend requests:', friendRequests);
+      
+      return handleResponse(
+        res,
+        200,
+        "success",
+        "Lấy danh sách lời mời kết bạn thành công",
+        friendRequests
+      );
+    } catch (error) {
+      console.error("Lỗi khi lấy danh sách lời mời kết bạn:", error);
+      return handleResponse(res, 500, "error", "Internal server error");
+    }
+  }
+
 }
 
 export default UserController;
