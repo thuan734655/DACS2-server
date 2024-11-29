@@ -28,6 +28,29 @@ class UserController {
       return handleResponse(res, 500, "error", "Internal server error.");
     }
   }
+  static async getSuggestedFriends(req, res) {
+    const userId = req.params.userId;
+    console.log('Controller - Received userId:', userId);
+    if (!userId) {
+      return handleResponse(res, 400, "fail", "userId is required.");
+    }
+
+    try {
+      const suggestions = await UserModel.getSuggestedFriends(userId);
+      console.log('Controller - Suggestions count:', suggestions.length);
+      console.log('Controller - First suggestion:', suggestions[0]);
+      return handleResponse(
+        res,
+        200,
+        "success",
+        "Successfully retrieved friend suggestions",
+        suggestions
+      );
+    } catch (error) {
+      console.error("Error getting friend suggestions:", error);
+      return handleResponse(res, 500, "error", "Internal server error.");
+    }
+  }
 }
 
 export default UserController;
