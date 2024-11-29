@@ -26,6 +26,33 @@ class UserModel {
     const result = await connectDB.query(sql, [idUser, idUser, idUser, idUser, idUser, idUser]);
     return result;
   }
+  static async sendFriendRequest(requesterId, receiverId) {
+    // Check if friend request already exists
+    const checkSql = `SELECT * FROM friend_requests 
+      WHERE (requester_id = ? AND receiver_id = ?) 
+      OR (requester_id = ? AND receiver_id = ?)`;
+    const [existingRequest] = await connectDB.query(checkSql, [requesterId, receiverId, receiverId, requesterId]);
+
+    if (existingRequest.length > 0) {
+      throw new Error('Friend request already exists');
+    }
+
+    // Check if they are already friends
+    const checkFriendsSql = `SELECT * FROM friends 
+      WHERE (idUser = ? AND idFriend = ?) 
+      OR (idUser = ? AND idFriend = ?)`;
+    const [existingFriendship] = await connectDB.query(checkFriendsSql, [requesterId, receiverId, receiverId, requesterId]);
+
+    if (existingFriendship.length > 0) {
+      throw new Error('Users are already friends');
+    }
+
+    // Insert new friend request
+    const sql = `INSERT INTO friend_requests (requester_id, receiver_id, status, created_at) 
+      VALUES (?, ?, 'pending', NOW())`;
+    const result = await connectDB.query(sql, [requesterId, receiverId]);
+    return result;
+  }
 }
 
 export default UserModel;
