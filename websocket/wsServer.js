@@ -44,7 +44,7 @@ const handleSocketEvents = (socket, io) => {
       // Create response with user info
       const postResponse = {
         postId: postId,
-        post: postData,
+        ...postData,
         infoUserList: {
           [post.idUser]: { id: post.idUser, ...userInfo[0] },
         },
@@ -191,15 +191,15 @@ const handleSocketEvents = (socket, io) => {
     try {
       console.log("Sharing post:", { postId, idUser, shareText });
       const result = await Post.sharePost(postId, idUser, shareText);
-      
+
       // Lấy thông tin bài viết gốc và số lượt share mới
       const originalPost = await Post.getPostById(postId);
       console.log("Original post:", originalPost);
 
       // Emit event cập nhật số lượt share cho tất cả client
-      io.emit("postShared", { 
+      io.emit("postShared", {
         postId,
-        shareCount: originalPost.shares || 0 
+        shareCount: originalPost.shares || 0,
       });
 
       // Nếu người share khác với người tạo bài viết gốc, gửi thông báo
@@ -207,7 +207,7 @@ const handleSocketEvents = (socket, io) => {
         io.to(`user_${originalPost.idUser}`).emit("postSharedNotification", {
           postId,
           sharedBy: idUser,
-          sharedPostId: result.sharedPostId
+          sharedPostId: result.sharedPostId,
         });
       }
 
@@ -230,14 +230,14 @@ const handleSocketEvents = (socket, io) => {
       // Thông báo cho người được share
       io.to(`user_${shareInfo.sharedWith}`).emit("shareRevoked", {
         shareId,
-        postId: shareInfo.postId
+        postId: shareInfo.postId,
       });
 
       socket.emit("revokeShareSuccess", { shareId });
     } catch (error) {
       console.error("Error revoking share:", error);
       socket.emit("revokeShareError", {
-        message: error.message
+        message: error.message,
       });
     }
   });
