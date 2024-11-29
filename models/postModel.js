@@ -318,7 +318,7 @@ class Post {
   }
 
   // Share bài viết lên profile
-  static async sharePost(originalPostId, idUser) {
+  static async sharePost(originalPostId, idUser, shareText) {
     try {
       console.log("Getting post:", originalPostId);
       // Lấy thông tin bài viết gốc
@@ -331,16 +331,29 @@ class Post {
         throw new Error("Post không tồn tại");
       }
 
+      // Lấy thông tin người dùng gốc
+      const [originalUser] = await UserModel.getInfoByIdUser(
+        originalPost.idUser
+      );
+      const userInfo = { ...originalUser };
       // Tạo bài viết được share mới
       const sharedPostRef = db.ref("posts").push();
       const sharedPostData = {
-        text: originalPost.text,
-        mediaUrls: originalPost.mediaUrls || [],
+        text: shareText || "", // Caption của người share
+        sharedPostContent: {
+          // Nội dung bài viết gốc
+          text: originalPost.text,
+          mediaUrls: originalPost.mediaUrls || [],
+          textColor: originalPost.textColor,
+          backgroundColor: originalPost.backgroundColor,
+          originalPostId,
+          originalUserId: originalPost.idUser,
+          originalUser: {
+            fullName: userInfo[0].fullName,
+            avatar: userInfo[0].avatar,
+          },
+        },
         idUser, // Người share
-        textColor: originalPost.textColor,
-        backgroundColor: originalPost.backgroundColor,
-        originalPostId,
-        originalUserId: originalPost.idUser,
         sharedAt: Date.now(),
         likes: {
           "👍": 0,
@@ -355,7 +368,7 @@ class Post {
         comments: [],
         createdAt: Date.now(),
         isShared: true,
-        isProfileShare: true // Đánh dấu là share lên profile
+        isProfileShare: true,
       };
 
       console.log("Creating shared post:", sharedPostData);
@@ -369,26 +382,32 @@ class Post {
         sharedPostId,
         originalUserId: originalPost.idUser,
         sharedBy: idUser,
+        shareText: shareText || "",
         sharedAt: Date.now(),
-        type: "profile", // Loại share (profile/group/...)
+        type: "profile",
         status: "active",
         interactions: {
           likes: 0,
           comments: 0,
-          shares: 0
-        }
+          shares: 0,
+        },
       };
-      
+
       await sharePostRef.set(sharePostData);
       console.log("Share post data saved:", sharePostData);
 
       // Tăng số lượt share của bài viết gốc
-      await originalPostRef.child("shares").transaction(shares => (shares || 0) + 1);
+      await originalPostRef
+        .child("shares")
+        .transaction((shares) => (shares || 0) + 1);
 
-      console.log("Share completed:", { sharedPostId, shareId: sharePostRef.key });
+      console.log("Share completed:", {
+        sharedPostId,
+        shareId: sharePostRef.key,
+      });
       return {
         sharedPostId,
-        shareId: sharePostRef.key
+        shareId: sharePostRef.key,
       };
     } catch (error) {
       console.error("Error in sharePost:", error);
@@ -437,7 +456,7 @@ class Post {
         .orderByChild("sharedWith")
         .equalTo(userId)
         .once("value");
-      
+
       const shares = [];
       const sharesData = snapshot.val() || {};
 
@@ -451,13 +470,15 @@ class Post {
 
           if (sharedPost) {
             // Lấy thông tin người share
-            const [sharedByUser] = await UserModel.getInfoByIdUser(share.sharedBy);
+            const [sharedByUser] = await UserModel.getInfoByIdUser(
+              share.sharedBy
+            );
 
             shares.push({
               shareId,
               ...share,
               post: sharedPost,
-              sharedByUser
+              sharedByUser,
             });
           }
         }
@@ -484,12 +505,14 @@ class Post {
       // Cập nhật trạng thái share
       await shareRef.update({
         status: "revoked",
-        revokedAt: Date.now()
+        revokedAt: Date.now(),
       });
 
       // Giảm số lượt share của bài viết gốc
       const originalPostRef = db.ref(`posts/${share.postId}`);
-      await originalPostRef.child("shares").transaction(shares => Math.max((shares || 0) - 1, 0));
+      await originalPostRef
+        .child("shares")
+        .transaction((shares) => Math.max((shares || 0) - 1, 0));
 
       return true;
     } catch (error) {
@@ -506,12 +529,12 @@ class Post {
         .orderByChild("sharedBy")
         .equalTo(idUser)
         .once("value");
-      
+
       const shares = [];
-      snapshot.forEach(childSnapshot => {
+      snapshot.forEach((childSnapshot) => {
         shares.push({
           shareId: childSnapshot.key,
-          ...childSnapshot.val()
+          ...childSnapshot.val(),
         });
       });
 
@@ -530,12 +553,12 @@ class Post {
         .orderByChild("originalPostId")
         .equalTo(postId)
         .once("value");
-      
+
       const shares = [];
-      snapshot.forEach(childSnapshot => {
+      snapshot.forEach((childSnapshot) => {
         shares.push({
           shareId: childSnapshot.key,
-          ...childSnapshot.val()
+          ...childSnapshot.val(),
         });
       });
 
@@ -550,7 +573,7 @@ class Post {
   static async updateShareInteractions(shareId, type, value) {
     try {
       const shareRef = db.ref(`shares-post/${shareId}/interactions/${type}`);
-      await shareRef.transaction(current => (current || 0) + value);
+      await shareRef.transaction((current) => (current || 0) + value);
     } catch (error) {
       console.error("Error updating share interactions:", error);
       throw error;
@@ -560,11 +583,11 @@ class Post {
   // Lấy danh sách bài viết của user được share bởi người khác
   static async getPostsSharedByOthers(userId) {
     try {
-      const sharesRef = db.ref('shares-post');
+      const sharesRef = db.ref("shares-post");
       const snapshot = await sharesRef
-        .orderByChild('originalUserId')
+        .orderByChild("originalUserId")
         .equalTo(userId)
-        .once('value');
+        .once("value");
 
       const shares = [];
       const posts = [];
@@ -572,10 +595,11 @@ class Post {
 
       snapshot.forEach((childSnapshot) => {
         const share = childSnapshot.val();
-        if (share.sharedBy !== userId) { // Chỉ lấy bài share bởi người khác
+        if (share.sharedBy !== userId) {
+          // Chỉ lấy bài share bởi người khác
           shares.push({
             ...share,
-            shareId: childSnapshot.key
+            shareId: childSnapshot.key,
           });
           users.add(share.sharedBy);
           users.add(share.originalUserId);
@@ -586,9 +610,7 @@ class Post {
       const userInfoList = {};
       await Promise.all(
         Array.from(users).map(async (uid) => {
-          const userSnapshot = await db
-            .ref(`users/${uid}`)
-            .once('value');
+          const userSnapshot = await db.ref(`users/${uid}`).once("value");
           userInfoList[uid] = userSnapshot.val();
         })
       );
@@ -598,28 +620,28 @@ class Post {
         shares.map(async (share) => {
           const postSnapshot = await db
             .ref(`posts/${share.originalPostId}`)
-            .once('value');
-          
+            .once("value");
+
           const post = postSnapshot.val();
           if (post) {
             // Lấy số lượt like và comment
             const likesSnapshot = await db
               .ref(`likes-post/${share.originalPostId}`)
-              .once('value');
+              .once("value");
             const commentsSnapshot = await db
               .ref(`comments-post/${share.originalPostId}`)
-              .once('value');
+              .once("value");
 
             posts.push({
               post: {
                 ...post,
-                postId: share.originalPostId
+                postId: share.originalPostId,
               },
               sharedAt: share.sharedAt,
               sharedBy: userInfoList[share.sharedBy],
               infoUserList: userInfoList,
               groupedLikes: likesSnapshot.val() || {},
-              commentCount: commentsSnapshot.numChildren() || 0
+              commentCount: commentsSnapshot.numChildren() || 0,
             });
           }
         })
@@ -627,7 +649,7 @@ class Post {
 
       return posts.sort((a, b) => b.sharedAt - a.sharedAt);
     } catch (error) {
-      console.error('Error in getPostsSharedByOthers:', error);
+      console.error("Error in getPostsSharedByOthers:", error);
       throw error;
     }
   }
