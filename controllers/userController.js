@@ -138,6 +138,28 @@ class UserController {
       return handleResponse(res, 500, "error", `Lỗi máy chủ: ${error.message}`);
     }
   }
+  static async getFriendCount(req, res) {
+    const userId = req.params.userId;
+    console.log('Lấy số lượng bạn bè cho user:', userId);
+
+    if (!userId) {
+      return handleResponse(res, 400, "fail", "userId là bắt buộc");
+    }
+
+    try {
+      const count = await UserModel.getFriendCount(userId);
+      return handleResponse(
+        res,
+        200,
+        "success",
+        "Lấy số lượng bạn bè thành công",
+        { count }
+      );
+    } catch (error) {
+      console.error("Lỗi khi lấy số lượng bạn bè:", error);
+      return handleResponse(res, 500, "error", "Lỗi máy chủ");
+    }
+  }
 }
 
 export default UserController;

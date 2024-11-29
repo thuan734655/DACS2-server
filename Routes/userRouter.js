@@ -8,4 +8,5 @@ router.get('/users/:userId/suggested-friends', UserController.getSuggestedFriend
 router.post('/users/:idUser/send-friend-request', UserController.sendFriendRequest);
 router.get('/users/:userId/friend-requests', UserController.getFriendRequests);
 router.post('/users/:userId/respond-friend-request', UserController.respondToFriendRequest);
+router.get('/users/:userId/friends/count', UserController.getFriendCount);
 export default router;

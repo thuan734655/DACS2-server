@@ -137,6 +137,23 @@ class UserModel {
       conn.release();
     }
   }
+  static async getFriendCount(userId) {
+    try {
+      const sql = `
+        SELECT COUNT(*) as friendCount 
+        FROM friend_requests 
+        WHERE (requester_id = ? OR receiver_id = ?)
+        AND status = 'accepted'
+      `;
+      console.log('Đang đếm số bạn bè của user:', userId);
+      const [result] = await connectDB.query(sql, [userId, userId]);
+      console.log('Kết quả đếm bạn bè:', result);
+      return result[0].friendCount;
+    } catch (error) {
+      console.error('Lỗi khi đếm số bạn bè:', error);
+      throw error;
+    }
+  }
 }
 
 export default UserModel;
