@@ -20,12 +20,13 @@ const handleNotificationEvents = (socket, io) => {
       // Join vào room mới với userId
       const roomName = `user_${userId}`;
       socket.join(roomName);
-      socket.userId = userId; // Lưu userId vào socket để sử dụng sau này
+      socket.userId = userId;
 
       console.log(`User ${userId} joined room: ${roomName}`);
 
       // Lấy notifications cũ của user
       const notifications = await NotificationModel.getNotifications(userId);
+      console.log('Sending notifications to user:', notifications);
       
       // Gửi danh sách notifications cho user
       socket.emit('notificationsList', notifications);
@@ -40,7 +41,7 @@ const handleNotificationEvents = (socket, io) => {
           id: snapshot.key,
           ...snapshot.val()
         };
-        // Gửi notification mới chỉ đến room của user đó
+        console.log('New notification:', newNotification);
         io.to(roomName).emit('newNotification', newNotification);
       });
 
@@ -53,12 +54,53 @@ const handleNotificationEvents = (socket, io) => {
         io.to(roomName).emit('notificationUpdated', updatedNotification);
       });
 
-    } catch (error) {
-      console.error('Error joining notification room:', error);
-      socket.emit('error', { 
-        message: 'Failed to join notification room',
-        error: error.message 
+      // Cleanup khi user disconnect
+      socket.on('disconnect', () => {
+        userNotificationsRef.off();
+        console.log(`User ${userId} disconnected from room: ${roomName}`);
       });
+
+    } catch (error) {
+      console.error('Error in joinNotificationRoom:', error);
+      socket.emit('error', { message: 'Failed to join notification room' });
+    }
+  });
+
+  // Xử lý đánh dấu notification đã đọc
+  socket.on('markNotificationAsRead', async ({ notificationId, userId }) => {
+    try {
+      const notificationRef = db.ref(`notifications/${notificationId}`);
+      await notificationRef.update({ read: true });
+      console.log(`Marked notification ${notificationId} as read for user ${userId}`);
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      socket.emit('error', { message: 'Failed to mark notification as read' });
+    }
+  });
+
+  // Xử lý đánh dấu tất cả notifications đã đọc
+  socket.on('markAllNotificationsAsRead', async ({ userId }) => {
+    try {
+      const userNotificationsRef = db.ref('notifications')
+        .orderByChild('recipientId')
+        .equalTo(userId);
+      
+      const snapshot = await userNotificationsRef.once('value');
+      const updates = {};
+      
+      snapshot.forEach(child => {
+        if (!child.val().read) {
+          updates[`notifications/${child.key}/read`] = true;
+        }
+      });
+
+      if (Object.keys(updates).length > 0) {
+        await db.ref().update(updates);
+        console.log(`Marked all notifications as read for user ${userId}`);
+      }
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+      socket.emit('error', { message: 'Failed to mark all notifications as read' });
     }
   });
 
@@ -69,21 +111,6 @@ const handleNotificationEvents = (socket, io) => {
       const roomName = `user_${userId}`;
       socket.leave(roomName);
       console.log(`User ${userId} left room: ${roomName}`);
-
-      // Remove Firebase listeners
-      const userNotificationsRef = db.ref('notifications')
-        .orderByChild('recipientId')
-        .equalTo(userId);
-      userNotificationsRef.off();
-    }
-  });
-
-  // Xử lý khi user disconnect
-  socket.on('disconnect', () => {
-    const userId = socket.userId;
-    if (userId) {
-      const roomName = `user_${userId}`;
-      console.log(`User ${userId} disconnected from room: ${roomName}`);
 
       // Remove Firebase listeners
       const userNotificationsRef = db.ref('notifications')

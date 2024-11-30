@@ -333,6 +333,7 @@ socket.on('newComment', async (data) => {
 
     try {
       const notifications = await NotificationModel.getNotifications(idUser);
+      console.log('Fetched notifications:', notifications);
       socket.emit('notificationsList', notifications || []);
     } catch (error) {
       console.error('Error fetching notifications:', error);
