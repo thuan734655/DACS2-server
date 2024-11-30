@@ -160,6 +160,49 @@ class UserController {
       return handleResponse(res, 500, "error", "Lỗi máy chủ");
     }
   }
+  static async searchUsersByName(req, res) {
+    const { fullName, currentUserId } = req.query;
+    console.log('Tìm kiếm user với tên:', fullName);
+
+    if (!fullName || !currentUserId) {
+      return handleResponse(res, 400, "fail", "Thiếu thông tin tìm kiếm");
+    }
+
+    try {
+      const users = await UserModel.searchUsersByName(fullName, currentUserId);
+      return handleResponse(
+        res,
+        200,
+        "success",
+        "Tìm kiếm thành công",
+        users
+      );
+    } catch (error) {
+      console.error("Lỗi khi tìm kiếm user:", error);
+      return handleResponse(res, 500, "error", "Lỗi máy chủ");
+    }
+  }
+  static async getFriendsList(req, res) {
+    const userId = req.params.userId;
+    
+    if (!userId) {
+      return handleResponse(res, 400, "fail", "userId là bắt buộc");
+    }
+
+    try {
+      const friends = await UserModel.getFriendsList(userId);
+      return handleResponse(
+        res,
+        200,
+        "success",
+        "Lấy danh sách bạn bè thành công",
+        friends
+      );
+    } catch (error) {
+      console.error("Lỗi khi lấy danh sách bạn bè:", error);
+      return handleResponse(res, 500, "error", "Lỗi máy chủ");
+    }
+  }
 }
 
 export default UserController;

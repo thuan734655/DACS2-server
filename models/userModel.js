@@ -154,6 +154,65 @@ class UserModel {
       throw error;
     }
   }
+  static async searchUsersByName(fullName, currentUserId) {
+    try {
+      // Tìm kiếm user theo tên và loại trừ current user
+      const searchSql = `
+        SELECT 
+          u.idUser,
+          u.fullName,
+          u.avatar,
+          CASE 
+            WHEN fr.status IS NOT NULL THEN fr.status
+            ELSE 'none'
+          END as friendStatus
+        FROM user u
+        LEFT JOIN friend_requests fr ON 
+          (fr.requester_id = ? AND fr.receiver_id = u.idUser)
+          OR (fr.receiver_id = ? AND fr.requester_id = u.idUser)
+        WHERE u.idUser != ? 
+        AND u.fullName LIKE ?
+        ORDER BY 
+          CASE 
+            WHEN u.fullName LIKE ? THEN 0
+            WHEN u.fullName LIKE ? THEN 1
+            ELSE 2
+          END,
+          u.fullName
+      `;
+      
+      const searchPattern = `%${fullName}%`;
+      const startPattern = `${fullName}%`;
+      console.log('Tìm kiếm user với pattern:', searchPattern);
+      
+      const [users] = await connectDB.query(searchSql, [
+        currentUserId,
+        currentUserId,
+        currentUserId,
+        searchPattern,
+        startPattern,
+        searchPattern
+      ]);
+      
+      console.log('Kết quả tìm kiếm:', users);
+      return users;
+    } catch (error) {
+      console.error('Lỗi khi tìm kiếm user:', error);
+      throw error;
+    }
+  }
+  static async getFriendsList(userId) {
+    const sql = `
+      SELECT u.idUser, u.fullName, u.avatar
+      FROM friends f
+      JOIN user u ON f.idFriend = u.idUser
+      WHERE f.idUser = ?
+      ORDER BY u.fullName`;
+    
+    const [rows] = await connectDB.query(sql, [userId]);
+    console.log('Danh sách bạn bè:', rows);
+    return rows;
+  }
 }
 
 export default UserModel;
