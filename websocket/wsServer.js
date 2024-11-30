@@ -1,3 +1,5 @@
+import db from "../config/firebaseConfig.js";
+import NotificationModel from "../models/notificationModel.js";
 import Post from "../models/postModel.js";
 import UserModel from "../models/userModel.js";
 import handleFileWebSocket from "../utils/handleFileWebSocket.js";
@@ -197,54 +199,84 @@ const handleSocketEvents = (socket, io) => {
     console.log("Danh sách bình luận đã được gửi đi:", comments);
   });
 
-  // Share post event
   socket.on("sharePost", async ({ postId, idUser, shareText }) => {
     try {
-      console.log("[DEBUG] Starting share post process:", { postId, idUser });
-
-      // 1. Share post và lấy kết quả
-      const result = await Post.sharePost(postId, idUser, shareText);
-      console.log("[DEBUG] Share post result:", result);
-
-      // 2. Lấy thông tin bài viết gốc
-      const originalPost = await Post.getPostById(postId);
-      console.log("[DEBUG] Original post info:", originalPost);
-
-      // 3. Chuẩn bị response data
-      const responseData = {
+      console.log("[DEBUG] Bắt đầu quá trình chia sẻ bài viết:", {
         postId,
-        shareCount: originalPost.shares || 0,
-        sharedPostId: result.sharedPostId,
-        success: true
+        idUser,
+      });
+
+      // 1. Chia sẻ bài viết và lấy kết quả
+      const result = await Post.sharePost(postId, idUser, shareText);
+      console.log("[DEBUG] Kết quả chia sẻ bài viết:", result);
+
+      // 2. Lấy thông tin bài viết gốc từ Firebase
+      const originalPost = await db.ref("posts").child(postId).once("value");
+      if (!originalPost.exists()) {
+        throw new Error("Post not found");
+      }
+      const postData = originalPost.val();
+      console.log("[DEBUG] Thông tin bài viết gốc từ Firebase:", postData);
+
+      // 3. Chuẩn bị dữ liệu thông báo
+      const userInfo = await UserModel.getInfoByIdUser(idUser);
+      const notificationData = {
+        postId,
+        postTitle: postData.title,
+        preview: postData.text.substring(0, 50),
+        senderAvatar: userInfo[0].avatar || "",
+        senderName: userInfo[0].name,
+        shareText: shareText,
+        userAvatar: postData.userAvatar || "",
+        userName: postData.userName,
       };
 
-      // 4. Emit một lần duy nhất cho tất cả clients
-      console.log("[DEBUG] Broadcasting share update:", responseData);
-      io.emit("postShared", responseData);
+      // 4. Gửi thông báo về sự kiện chia sẻ cho client
+      io.emit("postShared", {
+        idUserShare: idUser,
+        postId,
+        shareCount: postData.shares || 0,
+        sharedPostId: result.sharedPostId,
+        success: true,
+      });
 
-      // 5. Gửi thông báo cho người tạo post gốc (nếu khác với người share)
-      if (originalPost && originalPost.idUser !== idUser) {
-        console.log("[DEBUG] Sending notification to original post creator:", originalPost.idUser);
-        io.to(`user_${originalPost.idUser}`).emit("notification", {
+      // 5. Gửi thông báo cho người tạo bài viết gốc (nếu không phải người chia sẻ)
+      if (postData && postData.idUser !== idUser) {
+        console.log(
+          "[DEBUG] Gửi thông báo cho người tạo bài viết gốc:",
+          postData.idUser
+        );
+
+        // Tạo thông báo chia sẻ bài viết trong Firebase
+      const shareData =  await NotificationModel.createShareNotification(idUser, postId, postData.idUser,notificationData);
+
+        // Phát thông báo về sự kiện chia sẻ bài viết cho người nhận thông báo
+        io.emit("notification", {
+          originPostIdUser: postData.idUser,
           type: "postShared",
-          data: {
-            postId,
-            sharedBy: idUser,
-            sharedPostId: result.sharedPostId,
-            shareText: shareText
-          }
+          data: shareData,
         });
       }
-
     } catch (error) {
-      console.error("[ERROR] Error in share post:", error);
+      console.error("[ERROR] Lỗi khi chia sẻ bài viết:", error);
 
-      // Gửi thông báo lỗi về cho client
+      // Gửi thông báo lỗi cho client
       socket.emit("postShared", {
         postId,
         success: false,
-        error: error.message
+        error: error.message,
       });
+    }
+  });
+
+  // Sự kiện đánh dấu thông báo đã đọc
+  socket.on("markNotificationRead", async (notificationId) => {
+    try {
+      // Cập nhật trạng thái đã đọc trong cơ sở dữ liệu (có thể sử dụng Firebase hoặc MySQL)
+      await Post.updateNotificationStatus(notificationId, { read: true });
+      io.emit("notificationRead", { notificationId });
+    } catch (error) {
+      console.error("Lỗi khi đánh dấu thông báo đã đọc:", error);
     }
   });
 
@@ -268,7 +300,63 @@ const handleSocketEvents = (socket, io) => {
       });
     }
   });
+  // Xử lý đánh dấu notification đã đọc
+  socket.on("markNotificationAsRead", async ({ notificationId, userId }) => {
+    try {
+      const notificationRef = db.ref(`notifications/${notificationId}`);
+      await notificationRef.update({ read: true });
+      console.log(
+        `Marked notification ${notificationId} as read for user ${userId}`
+      );
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      socket.emit("error", { message: "Failed to mark notification as read" });
+    }
+  });
 
+  // Xử lý đánh dấu tất cả notifications đã đọc
+  socket.on("markAllNotificationsAsRead", async ({ userId }) => {
+    try {
+      const userNotificationsRef = db
+        .ref("notifications")
+        .orderByChild("recipientId")
+        .equalTo(userId);
+
+      const snapshot = await userNotificationsRef.once("value");
+      const updates = {};
+
+      snapshot.forEach((child) => {
+        if (!child.val().read) {
+          updates[`notifications/${child.key}/read`] = true;
+        }
+      });
+
+      if (Object.keys(updates).length > 0) {
+        await db.ref().update(updates);
+        console.log(`Marked all notifications as read for user ${userId}`);
+      }
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      socket.emit("error", {
+        message: "Failed to mark all notifications as read",
+      });
+    }
+  });
+  // Lắng nghe sự kiện lấy danh sách thông báo
+  socket.on("getNotifications", async ({ idUser, limit = 20 }) => {
+    try {
+      console.log("[DEBUG] Lấy danh sách thông báo cho người dùng:", idUser);
+
+      // Gọi hàm getNotifications từ model để lấy danh sách thông báo
+      const notifications = await NotificationModel.getNotifications(idUser, limit);
+
+      // Gửi danh sách thông báo cho client
+      socket.emit("notifications", { notifications });
+    } catch (error) {
+      console.error("[ERROR] Lỗi khi lấy thông báo:", error);
+      socket.emit("error", { message: "Lỗi khi lấy thông báo" });
+    }
+  });
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
     connectedUsers.delete(socket.id);
