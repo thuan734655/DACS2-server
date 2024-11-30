@@ -2,7 +2,18 @@ import Post from "../models/postModel.js";
 import UserModel from "../models/userModel.js";
 import handleFileWebSocket from "../utils/handleFileWebSocket.js";
 
+// Track connected users to avoid duplicate connections
+const connectedUsers = new Map();
+
 const handleSocketEvents = (socket, io) => {
+  // Check if socket is already connected
+  if (connectedUsers.has(socket.id)) {
+    console.log("Socket already connected:", socket.id);
+    return;
+  }
+
+  // Add to connected users
+  connectedUsers.set(socket.id, true);
   console.log("User connected:", socket.id);
 
   socket.on("newPost", async ({ post }) => {
@@ -189,34 +200,50 @@ const handleSocketEvents = (socket, io) => {
   // Share post event
   socket.on("sharePost", async ({ postId, idUser, shareText }) => {
     try {
-      console.log("Sharing post:", { postId, idUser, shareText });
+      console.log("[DEBUG] Starting share post process:", { postId, idUser });
+
+      // 1. Share post và lấy kết quả
       const result = await Post.sharePost(postId, idUser, shareText);
+      console.log("[DEBUG] Share post result:", result);
 
-      // Lấy thông tin bài viết gốc và số lượt share mới
+      // 2. Lấy thông tin bài viết gốc
       const originalPost = await Post.getPostById(postId);
-      console.log("Original post:", originalPost);
+      console.log("[DEBUG] Original post info:", originalPost);
 
-      // Emit event cập nhật số lượt share cho tất cả client
-      io.emit("postShared", {
+      // 3. Chuẩn bị response data
+      const responseData = {
         postId,
         shareCount: originalPost.shares || 0,
-      });
+        sharedPostId: result.sharedPostId,
+        success: true
+      };
 
-      // Nếu người share khác với người tạo bài viết gốc, gửi thông báo
+      // 4. Emit một lần duy nhất cho tất cả clients
+      console.log("[DEBUG] Broadcasting share update:", responseData);
+      io.emit("postShared", responseData);
+
+      // 5. Gửi thông báo cho người tạo post gốc (nếu khác với người share)
       if (originalPost && originalPost.idUser !== idUser) {
-        io.to(`user_${originalPost.idUser}`).emit("postSharedNotification", {
-          postId,
-          sharedBy: idUser,
-          sharedPostId: result.sharedPostId,
+        console.log("[DEBUG] Sending notification to original post creator:", originalPost.idUser);
+        io.to(`user_${originalPost.idUser}`).emit("notification", {
+          type: "postShared",
+          data: {
+            postId,
+            sharedBy: idUser,
+            sharedPostId: result.sharedPostId,
+            shareText: shareText
+          }
         });
       }
 
-      socket.emit("sharePostSuccess", result);
     } catch (error) {
-      console.error("Error sharing post:", error);
-      socket.emit("sharePostError", {
-        message: "Failed to share post",
-        error: error.message,
+      console.error("[ERROR] Error in share post:", error);
+
+      // Gửi thông báo lỗi về cho client
+      socket.emit("postShared", {
+        postId,
+        success: false,
+        error: error.message
       });
     }
   });
@@ -244,6 +271,7 @@ const handleSocketEvents = (socket, io) => {
 
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
+    connectedUsers.delete(socket.id);
   });
 };
 
