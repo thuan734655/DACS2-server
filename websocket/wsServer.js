@@ -1,7 +1,7 @@
 import Post from "../models/postModel.js";
 import UserModel from "../models/userModel.js";
 import handleFileWebSocket from "../utils/handleFileWebSocket.js";
-import NotificationModel from '../models/notificationModel.js';
+import NotificationModel from "../models/notificationModel.js";
 
 const handleSocketEvents = (socket, io) => {
   console.log("User connected:", socket.id);
@@ -62,53 +62,52 @@ const handleSocketEvents = (socket, io) => {
     }
   });
 
- // In notificationHandler.js
-socket.on('newComment', async (data) => {
-  const { postId, idUser, text, listFileUrl, user } = data.comment;
+  // In notificationHandler.js
+  socket.on("newComment", async (data) => {
+    const { postId, idUser, text, listFileUrl, user } = data.comment;
 
-  try {
-    const fileUrls = handleFileWebSocket(listFileUrl);
-    const commentContainer = {
-      postId,
-      idUser,
-      text,
-      fileUrls,
-      timestamp: Date.now(),
-    };
-    const commentId = await Post.addComment(commentContainer);
-    const newComment = {
-      commentId: commentId,
-      postId,
-      user: [user],
-      ...commentContainer,
-    };
-    io.emit('receiveComment', { newComment });
+    try {
+      const fileUrls = handleFileWebSocket(listFileUrl);
+      const commentContainer = {
+        postId,
+        idUser,
+        text,
+        fileUrls,
+        timestamp: Date.now(),
+      };
+      const commentId = await Post.addComment(commentContainer);
+      const newComment = {
+        commentId: commentId,
+        postId,
+        user: [user],
+        ...commentContainer,
+      };
+      io.emit("receiveComment", { newComment });
 
-    // Get post info from Firebase instead of MySQL
-    const postSnapshot = await db.ref(`posts/${postId}`).once('value');
-    const post = postSnapshot.val();
-    
-    if (post && post.idUser !== idUser) {
-      await createNotification(
-        'comment',
-        {
-          userId: idUser,
-          userName: user.name,
-          userAvatar: user.avatar,
-          postId,
-          commentId,
-          text
-        },
-        post.idUser
-      );
-      io.to(`user_${post.idUser}`).emit('newNotification');
+      // Get post info from Firebase instead of MySQL
+      const postSnapshot = await db.ref(`posts/${postId}`).once("value");
+      const post = postSnapshot.val();
+
+      if (post && post.idUser !== idUser) {
+        await createNotification(
+          "comment",
+          {
+            userId: idUser,
+            userName: user.name,
+            userAvatar: user.avatar,
+            postId,
+            commentId,
+            text,
+          },
+          post.idUser
+        );
+        io.to(`user_${post.idUser}`).emit("newNotification");
+      }
+    } catch (error) {
+      console.error("Error handling comment:", error);
+      socket.emit("error", { message: "Failed to add comment" });
     }
-
-  } catch (error) {
-    console.error('Error handling comment:', error);
-    socket.emit('error', { message: 'Failed to add comment' });
-  }
-});
+  });
 
   socket.on("replyComment", async ({ commentId, replyData }) => {
     const { postId, idUser, text, listFileUrl, user } = replyData;
@@ -173,56 +172,40 @@ socket.on('newComment', async (data) => {
 
   socket.on("newReaction", async ({ postId, emoji, idUser }) => {
     try {
-      console.log("[DEBUG] Line 165 - wsServer.js - newReaction event");
-      console.log("[DEBUG] Input data:", { postId, emoji, idUser });
-      
       const updatedLikes = await Post.likePost(postId, emoji, idUser);
-      console.log("[DEBUG] Line 169 - wsServer.js - likePost result:", updatedLikes);
-
       if (updatedLikes === "duplicate") {
         await Post.deleteLike(idUser, postId, emoji);
-        console.log("[DEBUG] Line 173 - wsServer.js - Deleted duplicate like");
       } else {
-        console.log("[DEBUG] Line 175 - wsServer.js - Creating notification");
         const post = await Post.getPostById(postId);
-        console.log("[DEBUG] Line 177 - wsServer.js - Found post:", post);
-        
         const [userInfo] = await UserModel.getInfoByIdUser(idUser);
-        console.log("[DEBUG] Line 180 - wsServer.js - Found user info:", userInfo);
-
         if (!userInfo || !userInfo[0].fullName) {
-          console.error("[DEBUG] Line 183 - wsServer.js - Invalid user info:", userInfo);
           throw new Error("Invalid user info");
         }
 
         if (post && post.idUser !== idUser) {
-          console.log("[DEBUG] Line 188 - wsServer.js - Creating notification for post owner:", post.idUser);
           try {
             const notificationData = {
               postId,
               userId: idUser,
               userName: userInfo[0].fullName,
-              userAvatar: userInfo[0].avatar || '',
-              emoji
+              userAvatar: userInfo[0].avatar || "",
+              emoji,
             };
-            console.log("[DEBUG] Line 197 - wsServer.js - Notification data:", notificationData);
-            const notification = await NotificationModel.createNotification(
-             { type:'like',
-             data: notificationData,
-              recipientId:  post.idUser}
-            );
-            console.log("[DEBUG] Line 204 - wsServer.js - Created notification:", notification);
-            
-            io.to(`user_${post.idUser}`).emit('newNotification', notification);
-            console.log("[DEBUG] Line 207 - wsServer.js - Emitted newNotification event");
+            const notification = await NotificationModel.createNotification({
+              type: emoji,
+              data: notificationData,
+              recipientId: post.idUser,
+            });
+
+            io.to(`user_${post.idUser}`).emit("newNotification", notification);
           } catch (notifError) {
-            console.error("[DEBUG] Line 209 - wsServer.js - Error creating notification:", notifError);
             throw notifError;
           }
         } else {
-          console.log("[DEBUG] Line 213 - wsServer.js - Skipping notification");
-          if (!post) console.log("[DEBUG] Line 214 - wsServer.js - Post not found");
-          if (post.idUser === idUser) console.log("[DEBUG] Line 215 - wsServer.js - Same user");
+          if (!post)
+            console.log("[DEBUG] Line 214 - wsServer.js - Post not found");
+          if (post.idUser === idUser)
+            console.log("[DEBUG] Line 215 - wsServer.js - Same user");
         }
       }
 
@@ -240,7 +223,10 @@ socket.on('newComment', async (data) => {
 
       socket.emit("reactionSuccess", { postId, emoji, updatedLikes });
     } catch (error) {
-      console.error("[DEBUG] Line 221 - wsServer.js - Main error in newReaction:", error);
+      console.error(
+        "[DEBUG] Line 221 - wsServer.js - Main error in newReaction:",
+        error
+      );
       socket.emit("reactionError", {
         message: "Không thể cập nhật lượt thích. Vui lòng thử lại.",
       });
@@ -257,47 +243,68 @@ socket.on('newComment', async (data) => {
   // Share post event
   socket.on("sharePost", async ({ postId, idUser, shareText }) => {
     try {
-      console.log("Sharing post:", { postId, idUser, shareText });
-      const result = await Post.sharePost(postId, idUser, shareText);
+      const post = await Post.getPostById(postId);
+      const [userInfo] = await UserModel.getInfoByIdUser(idUser);
 
-      // Lấy thông tin bài viết gốc và số lượt share mới
-      const originalPost = await Post.getPostById(postId);
-      console.log("Original post:", originalPost);
+      if (!post) {
+        socket.emit("postShared", { postId, error: "Bài viết không tồn tại" });
+        return;
+      }
 
-      // Emit event cập nhật số lượt share cho tất cả client
+      if (!userInfo || !userInfo[0].fullName) {
+        socket.emit("postShared", { postId, error: "Thông tin người dùng không hợp lệ" });
+        return;
+      }
+
+      // Create share record
+      const shareResult = await Post.sharePost(postId, idUser, shareText);
+
+      // Get updated share count
+      const updatedPost = await Post.getPostById(postId);
+      const shareCount = updatedPost.shares || 0;
+
+      // Broadcast share count update to all clients
       io.emit("postShared", {
         postId,
-        shareCount: originalPost.shares || 0,
+        shareCount,
+        error: null
       });
 
-      // Nếu người share khác với người tạo bài viết gốc, gửi thông báo
-      if (originalPost && originalPost.idUser !== idUser) {
-        io.to(`user_${originalPost.idUser}`).emit("postSharedNotification", {
+      // Only create notification if sharing someone else's post
+      if (post.idUser !== idUser) {
+        const notificationData = {
           postId,
-          sharedBy: idUser,
-          sharedPostId: result.sharedPostId,
+          postTitle: post.title || "",
+          postImage: post.image_url || "",
+          shareText: shareText || "",
+          userName: userInfo[0].fullName,
+          userAvatar: userInfo[0].avatar || "",
+        };
+
+        const notification = await NotificationModel.createNotification({
+          type: "share",
+          data: notificationData,
+          senderId: idUser,
+          recipientId: post.idUser,
+          relatedId: postId
         });
+
+        // Send notification to post owner
+        io.to(`user_${post.idUser}`).emit("newNotification", notification);
       }
 
-      // Tạo thông báo khi có người share
-      const [userInfo] = await UserModel.getInfoByIdUser(idUser);
-      if (originalPost && originalPost.idUser !== idUser) {
-        await NotificationModel.createNotification('share', {
-          postId,
-          sharedPostId: result.sharedPostId,
-          userId: idUser,
-          userName: userInfo.name,
-          userAvatar: userInfo.avatar
-        }, originalPost.idUser);
-        io.to(`user_${originalPost.idUser}`).emit('newNotification');
-      }
+      // Send success response to sharer
+      socket.emit("sharePostSuccess", {
+        postId,
+        shareId: shareResult.id,
+        shareCount
+      });
 
-      socket.emit("sharePostSuccess", result);
     } catch (error) {
-      console.error("Error sharing post:", error);
-      socket.emit("sharePostError", {
-        message: "Failed to share post",
-        error: error.message,
+      console.error("Error handling share post:", error);
+      socket.emit("postShared", {
+        postId,
+        error: "Không thể chia sẻ bài viết. Vui lòng thử lại sau."
       });
     }
   });
@@ -324,72 +331,104 @@ socket.on('newComment', async (data) => {
   });
 
   // Notification Events
-  socket.on('getNotifications', async ({ idUser }) => {
+  socket.on("getNotifications", async ({ idUser }) => {
     if (!idUser) {
-      console.error('No idUser provided in getNotifications event');
-      socket.emit('notificationsList', []);
+      console.error("No idUser provided in getNotifications event");
+      socket.emit("notificationsList", []);
       return;
     }
 
     try {
       const notifications = await NotificationModel.getNotifications(idUser);
-      console.log('Fetched notifications:', notifications);
-      socket.emit('notificationsList', notifications || []);
+      console.log("Fetched notifications:", notifications);
+      socket.emit("notificationsList", notifications || []);
     } catch (error) {
-      console.error('Error fetching notifications:', error);
-      socket.emit('notificationsList', []);
+      console.error("Error fetching notifications:", error);
+      socket.emit("notificationsList", []);
     }
   });
 
-  socket.on('markNotificationRead', async ({ notificationId, idUser }) => {
+  socket.on("markNotificationRead", async ({ notificationId, idUser }) => {
     if (!notificationId || !idUser) {
-      console.error('Missing notificationId or idUser in markNotificationRead event');
+      console.error(
+        "Missing notificationId or idUser in markNotificationRead event"
+      );
       return;
     }
 
     try {
       await NotificationModel.markAsRead(notificationId);
       const notifications = await NotificationModel.getNotifications(idUser);
-      socket.emit('notificationsList', notifications || []);
+      socket.emit("notificationsList", notifications || []);
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      console.error("Error marking notification as read:", error);
     }
   });
 
-  socket.on('markAllNotificationsRead', async ({ idUser }) => {
+  socket.on("markAllNotificationsRead", async ({ idUser }) => {
     try {
       await NotificationModel.markAllAsRead(idUser);
       const notifications = await NotificationModel.getNotifications(idUser);
-      socket.emit('notificationsList', notifications);
+      socket.emit("notificationsList", notifications);
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
+      console.error("Error marking all notifications as read:", error);
     }
   });
 
-  socket.on('deleteNotification', async ({ notificationId, idUser }) => {
+  socket.on("deleteNotification", async ({ notificationId, idUser }) => {
     try {
       await NotificationModel.deleteNotification(notificationId);
       const notifications = await NotificationModel.getNotifications(idUser);
-      socket.emit('notificationsList', notifications);
+      socket.emit("notificationsList", notifications);
     } catch (error) {
-      console.error('Error deleting notification:', error);
+      console.error("Error deleting notification:", error);
     }
   });
 
-  socket.on('deleteAllNotifications', async ({ idUser }) => {
+  socket.on("deleteAllNotifications", async ({ idUser }) => {
     try {
       await NotificationModel.deleteAllNotifications(idUser);
-      socket.emit('notificationsList', []);
+      socket.emit("notificationsList", []);
     } catch (error) {
-      console.error('Error deleting all notifications:', error);
+      console.error("Error deleting all notifications:", error);
     }
   });
 
   // Thêm event để join room cho notifications
-  socket.on('joinNotificationRoom', ({ idUser }) => {
+  socket.on("joinNotificationRoom", ({ idUser }) => {
     console.log(`User ${idUser} joining notification room`);
     socket.join(`user_${idUser}`);
   });
+
+  // Get related content for notification
+  socket.on(
+    "getRelatedContent",
+    async ({ idUser, notificationId, type, postId }) => {
+      try {
+        let content = null;
+
+        if (type === "like" || type === "comment" || type === "share") {
+          content = await Post.getPostById(postId);
+        }
+
+        // Mark notification as read when getting related content
+        await NotificationModel.markAsRead(notificationId);
+
+        // Emit the related content back to the client
+        socket.emit("relatedContent", content);
+
+        // Notify about read status update
+        io.to(`user_${idUser}`).emit("notificationUpdated", {
+          id: notificationId,
+          read: true,
+          readAt: Date.now(),
+        });
+      } catch (error) {
+        console.error("Error getting related content:", error);
+        socket.emit("error", { message: "Failed to get related content" });
+      }
+    }
+  );
 
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);

@@ -2,23 +2,48 @@ import db from '../config/firebaseConfig.js';
 import UserModel from './userModel.js';
 
 export class NotificationModel {
-  static async createNotification({ type, data, recipientId }) {
+  static types = {
+    LIKE: 'like',
+    COMMENT: 'comment',
+    FRIEND_REQUEST: 'friend_request',
+    FRIEND_ACCEPT: 'friend_accept',
+    SHARE: 'share',
+    MENTION: 'mention',
+    GROUP_INVITE: 'group_invite',
+    GROUP_ACCEPT: 'group_accept',
+    POST_TAG: 'post_tag',
+  };
+
+  static async createNotification({ type, data, senderId, recipientId, relatedId }) {
     try {
       // Get sender info from MySQL using UserModel
-      const [senderInfo] = await UserModel.getInfoByIdUser(data.userId);
+      const [senderInfo] = await UserModel.getInfoByIdUser(senderId);
       if (!senderInfo || !senderInfo[0]) {
         throw new Error('Sender not found');
       }
 
       let notificationData = {
         type,
-        senderId: data.userId,
-        senderName: data.userName || senderInfo[0].fullName,
-        senderAvatar: data.userAvatar || senderInfo[0].avatar,
+        senderId,
         recipientId,
         timestamp: Date.now(),
         read: false,
-        data
+        relatedId,
+        data: {
+          ...data,
+          senderName: data.userName || senderInfo[0].fullName,
+          senderAvatar: data.userAvatar || senderInfo[0].avatar || '',
+          // Add preview content based on type
+          preview: data.content ? (
+            type === 'comment' 
+              ? data.content.substring(0, 100) + (data.content.length > 100 ? '...' : '')
+              : data.content
+          ) : '',
+          postTitle: data.postTitle || 'Bài viết',
+          postImage: data.postImage || null,
+          // Add interaction details
+          interactionType: type === 'like' ? (data.emoji || '👍') : null,
+        }
       };
 
       // Save to Firebase
@@ -35,29 +60,131 @@ export class NotificationModel {
     }
   }
 
+  static async createShareNotification(senderId, postId, recipientId) {
+    try {
+      const [post] = await db.query(
+        `SELECT p.title, p.image_url, u.name as senderName, u.avatar as senderAvatar 
+         FROM posts p 
+         JOIN users u ON u.id = ? 
+         WHERE p.id = ?`,
+        [senderId, postId]
+      );
+
+      if (!post.length) {
+        throw new Error('Post not found');
+      }
+
+      const postData = post[0];
+      const notification = {
+        type: 'share',
+        senderId: senderId,
+        recipientId: recipientId,
+        timestamp: Date.now(),
+        read: false,
+        relatedId: postId,
+        data: {
+          postTitle: postData.title,
+          postImage: postData.image_url,
+          senderName: postData.senderName,
+          senderAvatar: postData.senderAvatar
+        }
+      };
+
+      const newNotificationRef = db.ref('notifications').push();
+      await newNotificationRef.set(notification);
+
+      return {
+        id: newNotificationRef.key,
+        ...notification
+      };
+    } catch (error) {
+      console.error('Error creating share notification:', error);
+      throw error;
+    }
+  }
+
   static getNotificationMessage(notification) {
     switch (notification.type) {
-      case 'post_like':
-        return `${notification.senderName} đã thích bài viết của bạn`;
-      case 'post_comment':
-        return `${notification.senderName} đã bình luận về bài viết của bạn`;
-      case 'friend_request':
-        return `${notification.senderName} đã gửi lời mời kết bạn`;
-      case 'friend_accept':
-        return `${notification.senderName} đã chấp nhận lời mời kết bạn của bạn`;
+      case this.types.LIKE:
+        return {
+          title: `${notification.data.senderName} đã thích bài viết của bạn`,
+          description: notification.data.postTitle || 'Bài viết',
+          action: 'thích'
+        };
+      case this.types.COMMENT:
+        return {
+          title: `${notification.data.senderName} đã bình luận về bài viết của bạn`,
+          description: notification.data.preview || 'Bài viết',
+          action: 'bình luận'
+        };
+      case this.types.FRIEND_REQUEST:
+        return {
+          title: `${notification.data.senderName} muốn kết bạn với bạn`,
+          description: 'Chấp nhận để trở thành bạn bè và chia sẻ với nhau',
+          action: 'gửi lời mời kết bạn'
+        };
+      case this.types.FRIEND_ACCEPT:
+        return {
+          title: `${notification.data.senderName} đã chấp nhận lời mời kết bạn`,
+          description: 'Giờ đây các bạn đã là bạn bè, hãy chia sẻ những khoảnh khắc với nhau',
+          action: 'chấp nhận kết bạn'
+        };
+      case this.types.SHARE:
+        return {
+          title: `${notification.data.senderName} đã chia sẻ bài viết của bạn`,
+          description: notification.data.postTitle || 'Bài viết',
+          action: 'chia sẻ'
+        };
+      case this.types.MENTION:
+        return {
+          title: `${notification.data.senderName} đã nhắc đến bạn trong một bài viết`,
+          description: notification.data.preview || 'Bài viết',
+          action: 'nhắc đến'
+        };
+      case this.types.GROUP_INVITE:
+        return {
+          title: `${notification.data.senderName} đã mời bạn tham gia nhóm`,
+          description: notification.data.groupName || 'Nhóm mới',
+          action: 'mời nhóm'
+        };
+      case this.types.GROUP_ACCEPT:
+        return {
+          title: `${notification.data.senderName} đã chấp nhận lời mời tham gia nhóm`,
+          description: notification.data.groupName || 'Nhóm',
+          action: 'chấp nhận nhóm'
+        };
+      case this.types.POST_TAG:
+        return {
+          title: `${notification.data.senderName} đã gắn thẻ bạn trong một bài viết`,
+          description: notification.data.postTitle || 'Bài viết',
+          action: 'gắn thẻ'
+        };
       default:
-        return notification.content;
+        return {
+          title: '',
+          description: '',
+          action: ''
+        };
     }
   }
 
   static getNotificationLink(notification) {
     switch (notification.type) {
-      case 'post_like':
-      case 'post_comment':
+      case this.types.LIKE:
+      case this.types.COMMENT:
         return `/post/${notification.relatedId}`;
-      case 'friend_request':
-      case 'friend_accept':
+      case this.types.FRIEND_REQUEST:
+      case this.types.FRIEND_ACCEPT:
         return `/profile/${notification.senderId}`;
+      case this.types.SHARE:
+        return `/post/${notification.relatedId}`;
+      case this.types.MENTION:
+        return `/post/${notification.relatedId}`;
+      case this.types.GROUP_INVITE:
+      case this.types.GROUP_ACCEPT:
+        return `/group/${notification.data.groupId}`;
+      case this.types.POST_TAG:
+        return `/post/${notification.relatedId}`;
       default:
         return '#';
     }
