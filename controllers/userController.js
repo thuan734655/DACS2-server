@@ -203,6 +203,63 @@ class UserController {
       return handleResponse(res, 500, "error", "Lỗi máy chủ");
     }
   }
+  static async getUserInfo(req, res) {
+    const userId = req.params.userId;
+
+    if (!userId) {
+      return handleResponse(res, 400, "fail", "userId is required.");
+    }
+
+    try {
+      const userInfo = await UserModel.getUserInfo(userId);
+      
+      if (!userInfo) {
+        return handleResponse(res, 404, "fail", "User not found.");
+      }
+
+      return handleResponse(
+        res,
+        200,
+        "success",
+        "User info retrieved successfully.",
+        userInfo
+      );
+    } catch (error) {
+      console.error("Error getting user info:", error);
+      return handleResponse(res, 500, "error", "Internal server error.");
+    }
+  }
+
+  static async updateUserInfo(req, res) {
+    const userId = req.params.userId;
+    const info = req.body;
+
+    if (!userId) {
+      return handleResponse(res, 400, "fail", "userId is required.");
+    }
+
+    if (!info || Object.keys(info).length === 0) {
+      return handleResponse(res, 400, "fail", "Update information is required.");
+    }
+
+    try {
+      const updated = await UserModel.updateUserInfo(userId, info);
+      
+      if (!updated) {
+        return handleResponse(res, 404, "fail", "User not found or update failed.");
+      }
+
+      return handleResponse(
+        res,
+        200,
+        "success",
+        "User info updated successfully."
+      );
+    } catch (error) {
+      console.error("Error updating user info:", error);
+      return handleResponse(res, 500, "error", "Internal server error.");
+    }
+  }
 }
 
 export default UserController;

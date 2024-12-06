@@ -213,6 +213,69 @@ class UserModel {
     console.log('Danh sách bạn bè:', rows);
     return rows;
   }
+  static async getUserInfo(userId) {
+    try {
+      const sql = `
+        SELECT introduction, education, location 
+        FROM user 
+        WHERE idUser = ?`;
+      const [result] = await connectDB.query(sql, [userId]);
+      return result[0] || {
+        introduction: '',
+        education: '',
+        location: ''
+      };
+    } catch (error) {
+      console.error('Error getting user info:', error);
+      throw error;
+    }
+  }
+  
+  static async updateUserInfo(userId, info) {
+    const conn = await connectDB.getConnection();
+    try {
+      await conn.beginTransaction();
+  
+      const checkSql = "SELECT idUser FROM user WHERE idUser = ?";
+      const [user] = await conn.query(checkSql, [userId]);
+  
+      if (!user || user.length === 0) {
+        throw new Error('User not found');
+      }
+  
+      // Check if user info exists
+      const checkInfoSql = "SELECT idUser FROM user WHERE idUser = ?";
+      const [existingInfo] = await conn.query(checkInfoSql, [userId]);
+  
+      let sql;
+      let params;
+  
+      if (existingInfo && existingInfo.length > 0) {
+        // Update existing info
+        sql = `
+          UPDATE user 
+          SET introduction = ?, education = ?, location = ?
+          WHERE idUser = ?`;
+        params = [info.introduction, info.education, info.location, userId];
+      } else {
+        // Insert new info
+        sql = `
+          INSERT INTO user (idUser, introduction, education, location)
+          VALUES (?, ?, ?, ?)`;
+        params = [userId, info.introduction, info.education, info.location];
+      }
+  
+      await conn.query(sql, params);
+      await conn.commit();
+      return true;
+    } catch (error) {
+      await conn.rollback();
+      console.error('Error updating user info:', error);
+      throw error;
+    } finally {
+      conn.release();
+    }
+  }
 }
 
 export default UserModel;

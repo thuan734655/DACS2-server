@@ -11,4 +11,9 @@ router.post('/users/:userId/respond-friend-request', UserController.respondToFri
 router.get('/users/:userId/friends/count', UserController.getFriendCount);
 router.get('/users/search-by-name', UserController.searchUsersByName);
 router.get('/users/:userId/friends', UserController.getFriendsList);
+
+// Thêm routes mới cho user info
+router.get('/users/:userId/info', UserController.getUserInfo);
+router.put('/users/:userId/info', UserController.updateUserInfo);
+
 export default router;
