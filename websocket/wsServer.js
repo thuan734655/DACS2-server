@@ -248,7 +248,12 @@ const handleSocketEvents = (socket, io) => {
         );
 
         // Tạo thông báo chia sẻ bài viết trong Firebase
-      const shareData =  await NotificationModel.createShareNotification(idUser, postId, postData.idUser,notificationData);
+        const shareData = await NotificationModel.createShareNotification(
+          idUser,
+          postId,
+          postData.idUser,
+          notificationData
+        );
 
         // Phát thông báo về sự kiện chia sẻ bài viết cho người nhận thông báo
         io.emit("notification", {
@@ -348,7 +353,10 @@ const handleSocketEvents = (socket, io) => {
       console.log("[DEBUG] Lấy danh sách thông báo cho người dùng:", idUser);
 
       // Gọi hàm getNotifications từ model để lấy danh sách thông báo
-      const notifications = await NotificationModel.getNotifications(idUser, limit);
+      const notifications = await NotificationModel.getNotifications(
+        idUser,
+        limit
+      );
 
       // Gửi danh sách thông báo cho client
       socket.emit("notifications", { notifications });
