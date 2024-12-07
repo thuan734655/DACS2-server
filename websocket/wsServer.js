@@ -100,22 +100,23 @@ const handleSocketEvents = (socket, io) => {
       if (!originalPost.exists()) {
         throw new Error("Post not found");
       }
+
       const postData = originalPost.val();
-
-      const userInfo = await UserModel.getInfoByIdUser(idUser);
-      const notificationData = {
-        type: TYPE,
-        commentId,
-        createdAt: Date.now(),
-        postId: postId,
-        read: false,
-        senderAvatar: userInfo[0][0].avatar || "",
-        senderName: userInfo[0][0].fullName || "",
-        senderId: idUser,
-        recipientId: postData.idUser,
-      };
-      await createAndEmitNotification(io, notificationData);
-
+      if (postData.idUser !== idUser) {
+        const userInfo = await UserModel.getInfoByIdUser(idUser);
+        const notificationData = {
+          type: TYPE,
+          commentId,
+          createdAt: Date.now(),
+          postId: postId,
+          read: false,
+          senderAvatar: userInfo[0][0].avatar || "",
+          senderName: userInfo[0][0].fullName || "",
+          senderId: idUser,
+          recipientId: postData.idUser,
+        };
+        await createAndEmitNotification(io, notificationData);
+      }
       io.emit("receiveComment", { newComment });
       console.log("Bình luận đã được thêm và gửi đi:", newComment);
     } catch (error) {
@@ -146,22 +147,24 @@ const handleSocketEvents = (socket, io) => {
         throw new Error("Post not found");
       }
       const commentData = originalComment.val();
-
-      const userInfo = await UserModel.getInfoByIdUser(idUser);
-      const notificationData = {
-        type: TYPE,
-        replyId,
-        commentId,
-        createdAt: Date.now(),
-        postId: postId,
-        read: false,
-        senderAvatar: userInfo[0][0].avatar || "",
-        senderName: userInfo[0][0].fullName || "",
-        senderId: idUser,
-        recipientId: commentData.idUser,
-      };
-      await createAndEmitNotification(io, notificationData);
-
+      if (commentData.idUser !== idUser) {
+        if (commentData.idUser !== idUser) {
+          const userInfo = await UserModel.getInfoByIdUser(idUser);
+          const notificationData = {
+            type: TYPE,
+            replyId,
+            commentId,
+            createdAt: Date.now(),
+            postId: postId,
+            read: false,
+            senderAvatar: userInfo[0][0].avatar || "",
+            senderName: userInfo[0][0].fullName || "",
+            senderId: idUser,
+            recipientId: commentData.idUser,
+          };
+          await createAndEmitNotification(io, notificationData);
+        }
+      }
       const newReply = {
         id: replyId,
         user: [user],
@@ -259,19 +262,20 @@ const handleSocketEvents = (socket, io) => {
       const postData = originalPost.val();
 
       const userInfo = await UserModel.getInfoByIdUser(idUser);
-      const notificationData = {
-        type: TYPE,
-        content: `${emoji}`,
-        createdAt: Date.now(),
-        postId: postId,
-        read: false,
-        senderAvatar: userInfo[0][0].avatar || "",
-        senderName: userInfo[0][0].fullName || "",
-        senderId: idUser,
-        recipientId: postData.idUser,
-      };
-      await createAndEmitNotification(io, notificationData);
-
+      if (idUser !== postData.idUser) {
+        const notificationData = {
+          type: TYPE,
+          content: `${emoji}`,
+          createdAt: Date.now(),
+          postId: postId,
+          read: false,
+          senderAvatar: userInfo[0][0].avatar || "",
+          senderName: userInfo[0][0].fullName || "",
+          senderId: idUser,
+          recipientId: postData.idUser,
+        };
+        await createAndEmitNotification(io, notificationData);
+      }
       io.emit("receiveReaction", { postId, groupedLikes });
 
       socket.emit("reactionSuccess", { postId, emoji, updatedLikes });
@@ -305,27 +309,27 @@ const handleSocketEvents = (socket, io) => {
       const TYPE = "POST_SHARE";
       const result = await Post.sharePost(postId, idUser, shareText);
 
-      // 2. Lấy thông tin bài viết gốc từ Firebase
+      //  Lấy thông tin bài viết gốc từ Firebase
       const originalPost = await db.ref("posts").child(postId).once("value");
       if (!originalPost.exists()) {
         throw new Error("Post not found");
       }
       const postData = originalPost.val();
-
-      const userInfo = await UserModel.getInfoByIdUser(idUser);
-      const notificationData = {
-        senderAvatar: userInfo[0][0].avatar || "",
-        senderName: userInfo[0][0].fullName || "",
-        senderId: idUser,
-        shareText: shareText,
-        recipientId: postData.idUser,
-        type: TYPE,
-        createdAt: Date.now(),
-        postId: postId,
-        read: false,
-      };
-      await createAndEmitNotification(io, notificationData);
-
+      if (postData.idUser !== idUser) {
+        const userInfo = await UserModel.getInfoByIdUser(idUser);
+        const notificationData = {
+          senderAvatar: userInfo[0][0].avatar || "",
+          senderName: userInfo[0][0].fullName || "",
+          senderId: idUser,
+          shareText: shareText,
+          recipientId: postData.idUser,
+          type: TYPE,
+          createdAt: Date.now(),
+          postId: postId,
+          read: false,
+        };
+        await createAndEmitNotification(io, notificationData);
+      }
       io.emit("postShared", {
         senderId: idUser,
         postId,
