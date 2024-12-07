@@ -17,11 +17,11 @@ import NotificationModel from "../models/notificationModel.js";
 export async function createAndEmitNotification(io, notificationData) {
   try {
     const content = {
-      type: notificationData.type,
-      postId: notificationData.postId,
-      recipientId: notificationData.recipientId,
+      type: notificationData.type || "",
+      postId: notificationData.postId || "",
+      recipientId: notificationData.recipientId || "",
       parentReplyID: notificationData.parentReplyID || "",
-      senderId: notificationData.senderId,
+      senderId: notificationData.senderId || "",
       commentId: notificationData.commentId || "",
       senderAvatar: notificationData.senderAvatar || "",
       senderName: notificationData.senderName || "",
@@ -33,7 +33,7 @@ export async function createAndEmitNotification(io, notificationData) {
     // Save the notification to the database
     const resultCreateNotification =
       await NotificationModel.createNewNotification(content);
-
+    console.log("hehehe");
     // Emit the notification to the recipient
     io.emit("notification", {
       originPostIdUser: notificationData.recipientId,

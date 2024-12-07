@@ -55,7 +55,7 @@ export class NotificationModel {
       // Lọc theo recipientId và giới hạn số lượng
       const snapshot = await ref
         .orderByChild("recipientId")
-        .equalTo(userId)
+        .equalTo(221)
         .limitToLast(limit)
         .once("value");
 

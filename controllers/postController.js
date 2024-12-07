@@ -1,5 +1,4 @@
 import Post from "../models/postModel.js";
-import UserModel from "../models/userModel.js";
 import { handleResponse } from "../utils/createResponse.js";
 
 // Tạo bài viết mới

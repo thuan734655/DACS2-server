@@ -14,7 +14,6 @@ const handleSocketEvents = (socket, io) => {
     console.log("Socket already connected:", socket.id);
     return;
   }
-
   // Add to connected users
   connectedUsers.set(socket.id, true);
   console.log("User connected:", socket.id);
@@ -438,9 +437,8 @@ const handleSocketEvents = (socket, io) => {
       socket.emit("error", { message: "Lỗi khi lấy thông báo" });
     }
   });
-  socket.on("getNotificationNoRead", async () => {
-    
-  });
+  socket.on("getNotificationNoRead", async () => {});
+
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
     connectedUsers.delete(socket.id);
