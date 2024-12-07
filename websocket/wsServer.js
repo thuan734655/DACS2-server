@@ -438,6 +438,9 @@ const handleSocketEvents = (socket, io) => {
       socket.emit("error", { message: "Lỗi khi lấy thông báo" });
     }
   });
+  socket.on("getNotificationNoRead", async () => {
+    
+  });
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
     connectedUsers.delete(socket.id);
