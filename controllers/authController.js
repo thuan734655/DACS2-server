@@ -11,9 +11,10 @@ const SECRET_KEY = process.env.JWT_SECRET || "your-secret-key";
 const authService = {
   async findUserByEmail(email) {
     const [rows] = await connectDB.query(
-      "SELECT u.idUser, u.fullName, u.avatar, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?",
+      "SELECT u.idUser, u.fullName, u.avatar, u.background, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?",
       [email]
     );
+    console.log("Database query result:", rows[0]);
     return rows[0];
   },
 
@@ -71,7 +72,7 @@ class AuthController {
     try {
       const { email, password, ip } = req.body;
       const query =
-        "SELECT u.idUser, u.fullName, u.avatar, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?";
+        "SELECT u.idUser, u.fullName, u.avatar, u.background, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?";
 
       connectDB.query(query, [email, password], (err, result) => {
         if (err) return res.status(500).json({ error: "Lỗi server" });
@@ -113,8 +114,14 @@ class AuthController {
         await updateInfoDevice(ip, email);
       }
 
-      const token = authService.generateToken(user.idUser);
-      console.log(user.fullName);
+
+      console.log("User data after login:", {
+        idUser: user.idUser,
+        email: user.email,
+        fullName: user.fullName,
+        avatar: user.avatar,
+        background: user.background,
+      });
 
       return handleResponse(res, 200, true, "Login successful", {
         user: {
@@ -122,6 +129,7 @@ class AuthController {
           email: user.email,
           fullName: user.fullName,
           avatar: user.avatar,
+          background: user.background,
         },
       });
     } catch (error) {

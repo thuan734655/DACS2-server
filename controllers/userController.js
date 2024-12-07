@@ -30,15 +30,15 @@ class UserController {
   }
   static async getSuggestedFriends(req, res) {
     const userId = req.params.userId;
-    console.log('Controller - Received userId:', userId);
+    console.log("Controller - Received userId:", userId);
     if (!userId) {
       return handleResponse(res, 400, "fail", "userId is required.");
     }
 
     try {
       const suggestions = await UserModel.getSuggestedFriends(userId);
-      console.log('Controller - Suggestions count:', suggestions.length);
-      console.log('Controller - First suggestion:', suggestions[0]);
+      console.log("Controller - Suggestions count:", suggestions.length);
+      console.log("Controller - First suggestion:", suggestions[0]);
       return handleResponse(
         res,
         200,
@@ -52,17 +52,32 @@ class UserController {
     }
   }
   static async sendFriendRequest(req, res) {
-    console.log('Request body:', req.body); // Log toàn bộ request body
+    console.log("Request body:", req.body); // Log toàn bộ request body
     const receiverId = req.params.idUser; // ID người nhận từ params
     const requesterId = req.body.requesterId; // ID người gửi từ body
-    console.log('Controller - Received friend request from:', requesterId, 'to:', receiverId);
-    
+    console.log(
+      "Controller - Received friend request from:",
+      requesterId,
+      "to:",
+      receiverId
+    );
+
     if (!requesterId || !receiverId) {
-      return handleResponse(res, 400, "fail", "Both requester ID and receiver ID are required.");
+      return handleResponse(
+        res,
+        400,
+        "fail",
+        "Both requester ID and receiver ID are required."
+      );
     }
 
     if (requesterId === receiverId) {
-      return handleResponse(res, 400, "fail", "Cannot send friend request to yourself.");
+      return handleResponse(
+        res,
+        400,
+        "fail",
+        "Cannot send friend request to yourself."
+      );
     }
 
     try {
@@ -75,7 +90,10 @@ class UserController {
       );
     } catch (error) {
       console.error("Error sending friend request:", error);
-      if (error.message === 'Friend request already exists' || error.message === 'Users are already friends') {
+      if (
+        error.message === "Friend request already exists" ||
+        error.message === "Users are already friends"
+      ) {
         return handleResponse(res, 400, "fail", error.message);
       }
       return handleResponse(res, 500, "error", "Internal server error.");
@@ -83,7 +101,7 @@ class UserController {
   }
   static async getFriendRequests(req, res) {
     const userId = req.params.userId;
-    console.log('Getting friend requests for user:', userId);
+    console.log("Getting friend requests for user:", userId);
 
     if (!userId) {
       return handleResponse(res, 400, "fail", "userId là bắt buộc");
@@ -91,8 +109,8 @@ class UserController {
 
     try {
       const friendRequests = await UserModel.getFriendRequests(userId);
-      console.log('Found friend requests:', friendRequests);
-      
+      console.log("Found friend requests:", friendRequests);
+
       return handleResponse(
         res,
         200,
@@ -106,20 +124,25 @@ class UserController {
     }
   }
   static async respondToFriendRequest(req, res) {
-    const receiver_id = req.params.userId;  // ID người nhận lời mời (người đang đăng nhập)
-    const { requester_id, accept } = req.body;  // ID người gửi lời mời và quyết định chấp nhận/từ chối
-    
-    console.log('Xử lý phản hồi lời mời kết bạn:', {
+    const receiver_id = req.params.userId; // ID người nhận lời mời (người đang đăng nhập)
+    const { requester_id, accept } = req.body; // ID người gửi lời mời và quyết định chấp nhận/từ chối
+
+    console.log("Xử lý phản hồi lời mời kết bạn:", {
       receiver_id,
       requester_id,
       accept,
-      body: req.body
+      body: req.body,
     });
-  
+
     if (!receiver_id || !requester_id) {
-      return handleResponse(res, 400, "fail", "Thiếu thông tin người gửi hoặc người nhận lời mời");
+      return handleResponse(
+        res,
+        400,
+        "fail",
+        "Thiếu thông tin người gửi hoặc người nhận lời mời"
+      );
     }
-  
+
     try {
       await UserModel.respondToFriendRequest(receiver_id, requester_id, accept);
       return handleResponse(
@@ -133,14 +156,14 @@ class UserController {
         error: error.message,
         receiver_id,
         requester_id,
-        accept
+        accept,
       });
       return handleResponse(res, 500, "error", `Lỗi máy chủ: ${error.message}`);
     }
   }
   static async getFriendCount(req, res) {
     const userId = req.params.userId;
-    console.log('Lấy số lượng bạn bè cho user:', userId);
+    console.log("Lấy số lượng bạn bè cho user:", userId);
 
     if (!userId) {
       return handleResponse(res, 400, "fail", "userId là bắt buộc");
@@ -162,7 +185,7 @@ class UserController {
   }
   static async searchUsersByName(req, res) {
     const { fullName, currentUserId } = req.query;
-    console.log('Tìm kiếm user với tên:', fullName);
+    console.log("Tìm kiếm user với tên:", fullName);
 
     if (!fullName || !currentUserId) {
       return handleResponse(res, 400, "fail", "Thiếu thông tin tìm kiếm");
@@ -170,13 +193,7 @@ class UserController {
 
     try {
       const users = await UserModel.searchUsersByName(fullName, currentUserId);
-      return handleResponse(
-        res,
-        200,
-        "success",
-        "Tìm kiếm thành công",
-        users
-      );
+      return handleResponse(res, 200, "success", "Tìm kiếm thành công", users);
     } catch (error) {
       console.error("Lỗi khi tìm kiếm user:", error);
       return handleResponse(res, 500, "error", "Lỗi máy chủ");
@@ -184,7 +201,7 @@ class UserController {
   }
   static async getFriendsList(req, res) {
     const userId = req.params.userId;
-    
+
     if (!userId) {
       return handleResponse(res, 400, "fail", "userId là bắt buộc");
     }
@@ -212,7 +229,7 @@ class UserController {
 
     try {
       const userInfo = await UserModel.getUserInfo(userId);
-      
+
       if (!userInfo) {
         return handleResponse(res, 404, "fail", "User not found.");
       }
@@ -239,14 +256,24 @@ class UserController {
     }
 
     if (!info || Object.keys(info).length === 0) {
-      return handleResponse(res, 400, "fail", "Update information is required.");
+      return handleResponse(
+        res,
+        400,
+        "fail",
+        "Update information is required."
+      );
     }
 
     try {
       const updated = await UserModel.updateUserInfo(userId, info);
-      
+
       if (!updated) {
-        return handleResponse(res, 404, "fail", "User not found or update failed.");
+        return handleResponse(
+          res,
+          404,
+          "fail",
+          "User not found or update failed."
+        );
       }
 
       return handleResponse(
@@ -258,6 +285,115 @@ class UserController {
     } catch (error) {
       console.error("Error updating user info:", error);
       return handleResponse(res, 500, "error", "Internal server error.");
+    }
+  }
+
+  static async updateOnlineStatus(req, res) {
+    const { idUser } = req.params;
+    const { isOnline } = req.body;
+
+    if (!idUser) {
+      return handleResponse(res, 400, "fail", "idUser is required.");
+    }
+
+    try {
+      await UserModel.updateOnlineStatus(idUser, isOnline);
+      return handleResponse(
+        res,
+        200,
+        "success",
+        "Online status updated successfully"
+      );
+    } catch (error) {
+      console.error("Error updating online status:", error);
+      return handleResponse(res, 500, "error", "Internal server error");
+    }
+  }
+
+  static async getOnlineFriends(req, res) {
+    const { idUser } = req.params;
+
+    if (!idUser) {
+      return handleResponse(res, 400, "fail", "idUser is required.");
+    }
+
+    try {
+      const onlineFriends = await UserModel.getOnlineFriends(idUser);
+      return handleResponse(
+        res,
+        200,
+        "success",
+        "Online friends retrieved successfully",
+        onlineFriends
+      );
+    } catch (error) {
+      console.error("Error getting online friends:", error);
+      return handleResponse(res, 500, "error", "Internal server error");
+    }
+  }
+  async getOnlineFriends(req, res) {
+    try {
+      const userId = req.params.userId; // Lấy ID user từ params
+      console.log(userId);
+
+      const onlineFriends = await UserModel.getOnlineFriends(userId); // Gọi hàm static từ Model
+      return handleResponse(
+        res,
+        200,
+        "Lấy danh sách bạn bè online thành công",
+        onlineFriends
+      );
+    } catch (error) {
+      console.error("Lỗi khi lấy danh sách bạn bè online:", error);
+      return handleResponse(res, 500, "Lỗi server", null);
+    }
+  }
+
+  static async updateAvatar(req, res) {
+    try {
+      if (!req.file) {
+        return handleResponse(res, 400, "fail", "No file uploaded");
+      }
+
+      const userId = req.params.userId;
+      const avatarPath = `/images/${req.file.filename}`;
+
+      await UserModel.updateUserAvatar(userId, avatarPath);
+
+      return handleResponse(
+        res,
+        200,
+        "success",
+        "Avatar updated successfully",
+        { avatarPath }
+      );
+    } catch (error) {
+      console.error("Error updating avatar:", error);
+      return handleResponse(res, 500, "error", "Internal server error");
+    }
+  }
+
+  static async updateCover(req, res) {
+    try {
+      if (!req.file) {
+        return handleResponse(res, 400, "fail", "No file uploaded");
+      }
+
+      const userId = req.params.userId;
+      const coverPath = `/images/${req.file.filename}`;
+
+      await UserModel.updateUserCover(userId, coverPath);
+
+      return handleResponse(
+        res,
+        200,
+        "success",
+        "Cover image updated successfully",
+        { coverPath }
+      );
+    } catch (error) {
+      console.error("Error updating cover image:", error);
+      return handleResponse(res, 500, "error", "Internal server error");
     }
   }
 }

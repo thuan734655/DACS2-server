@@ -2,7 +2,7 @@ import connectDB from "../config/ConnectDB.js";
 
 class UserModel {
   static async getInfoByIdUser(idUser) {
-    const sql = "SELECT  `fullName`,  `avatar` FROM `user` WHERE idUser = ?";
+    const sql = "SELECT  `fullName`,  `avatar`, `background` FROM `user` WHERE idUser = ?";
     const result = await connectDB.query(sql, [idUser]);
     return result;
   }
@@ -275,6 +275,36 @@ class UserModel {
     } finally {
       conn.release();
     }
+  }
+
+  static async updateOnlineStatus(idUser, isOnline) {
+    const sql = "UPDATE user SET isOnline = ? WHERE idUser = ?";
+    return await connectDB.query(sql, [isOnline, idUser]);
+  }
+
+  static async getOnlineFriends(idUser) {
+    const sql = `
+      SELECT u.idUser, u.fullName, u.avatar 
+      FROM user u
+      INNER JOIN friends f ON (f.idFriend = u.idUser AND f.idUser = ?)
+      WHERE u.isOnline = 1
+    `;
+    const [result] = await connectDB.query(sql, [idUser]);
+    return result;
+  }
+
+  static async updateUserAvatar(userId, avatarPath) {
+    const sql = "UPDATE user SET avatar = ? WHERE idUser = ?";
+    const result = await connectDB.query(sql, [avatarPath, userId]);
+    return result;
+  }
+
+  static async updateUserCover(userId, coverPath) {
+    const sql = "UPDATE user SET background = ? WHERE idUser = ?";
+    const result = await connectDB.query(sql, [coverPath, userId]);
+    console.log("result:",result);
+    
+    return result;
   }
 }
 
