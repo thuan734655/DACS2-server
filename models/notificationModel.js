@@ -68,52 +68,16 @@ export class NotificationModel {
   }
 
   // Hàm tạo thông báo chia sẻ bài viết và lưu vào Firebase
-  static createShareNotification = async (
-    senderId,
-    postId,
-    recipientId,
-    notificationData
-  ) => {
+  static createNewNotification = async (notificationData) => {
     try {
-      // Lấy thông tin bài viết từ Firebase
-      const postSnapshot = await db.ref("posts").child(postId).once("value");
-      if (!postSnapshot.exists()) {
-        throw new Error("Post not found");
-      }
-
-      const postData = postSnapshot.val();
-
-      const [result] = await UserModel.getInfoByIdUser(senderId);
-      const userInfo = { ...result };
-      console.log(userInfo);
-      // Tạo đối tượng thông báo
-      const notification = {
-        type: "share",
-        senderId: senderId,
-        recipientId: recipientId,
-        timestamp: Date.now(),
-        read: false,
-        relatedId: postId,
-        data: {
-          postTitle: notificationData.shareText || "",
-          postImage: postData.mediaUrls || " ",
-          senderName: userInfo[0].senderName || "",
-          senderAvatar: userInfo[0].senderAvatar || "",
-        },
-      };
 
       // Lưu thông báo vào Firebase
       const newNotificationRef = db.ref("notifications").push();
-      await newNotificationRef.set(notification);
-
-      console.log(
-        "[DEBUG] Thông báo chia sẻ bài viết đã được lưu vào Firebase:",
-        notification
-      );
+      await newNotificationRef.set(notificationData);
 
       return {
         id: newNotificationRef.key,
-        ...notification,
+        ...notificationData,
       };
     } catch (error) {
       console.error("Error creating share notification:", error);

@@ -40,6 +40,46 @@ class Post {
       throw error;
     }
   }
+
+  
+  // Trả lời bình luận
+  static async replyToComment({ commentId, newReplyData }) {
+    console.log("replyToCommen", commentId)
+    try {
+      const replyRef = db.ref("replies").push();
+      const replyId = replyRef.key;
+
+      await replyRef.set({ ...newReplyData, replyId, commentId });
+
+      await db
+        .ref(`commentsList/${commentId}/replies`)
+        .transaction((replies) => [...(replies || []), replyId]);
+
+      return replyId;
+    } catch (error) {
+      console.error("Error replying to comment:", error);
+      throw error;
+    }
+  }
+
+  // Trả lời một phản hồi (reply to reply)
+  static async replyToReply({ replyId, newReplyData }) {
+    try {
+      const replyRef = db.ref("replies").push();
+      const newReplyId = replyRef.key;
+
+      await replyRef.set({ ...newReplyData, replyId: newReplyId });
+
+      await db
+        .ref(`replies/${replyId}/replies`)
+        .transaction((replies) => [...(replies || []), newReplyId]);
+
+      return newReplyId;
+    } catch (error) {
+      console.error("Error replying to reply:", error);
+      throw error;
+    }
+  }
   // Lấy danh sách người đã thích bài viết
   static async getLikes(postId) {
     try {
@@ -186,43 +226,6 @@ class Post {
     }
   }
 
-  // Trả lời bình luận
-  static async replyToComment({ commentId, newReplyData }) {
-    try {
-      const replyRef = db.ref("replies").push();
-      const replyId = replyRef.key;
-
-      await replyRef.set({ ...newReplyData, replyId, commentId });
-
-      await db
-        .ref(`commentsList/${commentId}/replies`)
-        .transaction((replies) => [...(replies || []), replyId]);
-
-      return replyId;
-    } catch (error) {
-      console.error("Error replying to comment:", error);
-      throw error;
-    }
-  }
-
-  // Trả lời một phản hồi (reply to reply)
-  static async replyToReply({ replyId, newReplyData }) {
-    try {
-      const replyRef = db.ref("replies").push();
-      const newReplyId = replyRef.key;
-
-      await replyRef.set({ ...newReplyData, replyId: newReplyId });
-
-      await db
-        .ref(`replies/${replyId}/replies`)
-        .transaction((replies) => [...(replies || []), newReplyId]);
-
-      return newReplyId;
-    } catch (error) {
-      console.error("Error replying to reply:", error);
-      throw error;
-    }
-  }
 
   // Lấy bình luận của bài viết
   static async getComments(postId) {

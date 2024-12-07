@@ -3,6 +3,7 @@ import NotificationModel from "../models/notificationModel.js";
 import Post from "../models/postModel.js";
 import UserModel from "../models/userModel.js";
 import handleFileWebSocket from "../utils/handleFileWebSocket.js";
+import { createAndEmitNotification } from "../utils/notificationForm.js";
 
 // Track connected users to avoid duplicate connections
 const connectedUsers = new Map();
@@ -76,7 +77,7 @@ const handleSocketEvents = (socket, io) => {
 
   socket.on("newComment", async (data) => {
     const { postId, idUser, text, listFileUrl, user } = data.comment;
-
+    const TYPE = "POST_COMMENT";
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
 
@@ -94,15 +95,36 @@ const handleSocketEvents = (socket, io) => {
         user: [user],
         ...commentContainer,
       };
+      //  Lấy thông tin bài viết gốc từ Firebase
+      const originalPost = await db.ref("posts").child(postId).once("value");
+      if (!originalPost.exists()) {
+        throw new Error("Post not found");
+      }
+      const postData = originalPost.val();
+
+      const userInfo = await UserModel.getInfoByIdUser(idUser);
+      const notificationData = {
+        type: TYPE,
+        commentId,
+        createdAt: Date.now(),
+        postId: postId,
+        read: false,
+        senderAvatar: userInfo[0][0].avatar || "",
+        senderName: userInfo[0][0].fullName || "",
+        senderId: idUser,
+        recipientId: postData.idUser,
+      };
+      await createAndEmitNotification(io, notificationData);
+
       io.emit("receiveComment", { newComment });
       console.log("Bình luận đã được thêm và gửi đi:", newComment);
     } catch (error) {
       console.error("Lỗi khi thêm bình luận:", error);
     }
   });
-
   socket.on("replyComment", async ({ commentId, replyData }) => {
     const { postId, idUser, text, listFileUrl, user } = replyData;
+    const TYPE = "POST_REPLY_COMMENT";
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
 
@@ -114,6 +136,31 @@ const handleSocketEvents = (socket, io) => {
         timestamp: Date.now(),
       };
       const replyId = await Post.replyToComment({ commentId, newReplyData });
+
+      //  Lấy thông tin bài viết gốc từ Firebase
+      const originalComment = await db
+        .ref("commentsList")
+        .child(commentId)
+        .once("value");
+      if (!originalComment.exists()) {
+        throw new Error("Post not found");
+      }
+      const commentData = originalComment.val();
+
+      const userInfo = await UserModel.getInfoByIdUser(idUser);
+      const notificationData = {
+        type: TYPE,
+        replyId,
+        commentId,
+        createdAt: Date.now(),
+        postId: postId,
+        read: false,
+        senderAvatar: userInfo[0][0].avatar || "",
+        senderName: userInfo[0][0].fullName || "",
+        senderId: idUser,
+        recipientId: commentData.idUser,
+      };
+      await createAndEmitNotification(io, notificationData);
 
       const newReply = {
         id: replyId,
@@ -128,9 +175,9 @@ const handleSocketEvents = (socket, io) => {
       console.error("Lỗi khi thêm phản hồi:", error);
     }
   });
-
   socket.on("replyToReply", async ({ replyId, replyData }) => {
     const { postId, idUser, text, listFileUrl, user } = replyData;
+    const TYPE = "POST_REPLY_TO_REPLY";
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
       const newReplyData = {
@@ -143,6 +190,30 @@ const handleSocketEvents = (socket, io) => {
       };
 
       const replyKey = await Post.replyToReply({ replyId, newReplyData });
+      //  Lấy thông tin bài viết gốc từ Firebase
+      const originalComment = await db
+        .ref("replies")
+        .child(replyId)
+        .once("value");
+      if (!originalComment.exists()) {
+        throw new Error("Post not found");
+      }
+      const commentData = originalComment.val();
+
+      const userInfo = await UserModel.getInfoByIdUser(idUser);
+      const notificationData = {
+        type: TYPE,
+        replyId: replyKey,
+        parentReplyID: replyId,
+        createdAt: Date.now(),
+        postId: postId,
+        read: false,
+        senderAvatar: userInfo[0][0].avatar || "",
+        senderName: userInfo[0][0].fullName || "",
+        senderId: idUser,
+        recipientId: commentData.idUser,
+      };
+      await createAndEmitNotification(io, notificationData);
 
       const newReply = {
         replyId: replyKey,
@@ -164,8 +235,8 @@ const handleSocketEvents = (socket, io) => {
 
   socket.on("newReaction", async ({ postId, emoji, idUser }) => {
     try {
+      const TYPE = "POST_REACTION";
       const updatedLikes = await Post.likePost(postId, emoji, idUser);
-
       if (updatedLikes === "duplicate") {
         await Post.deleteLike(idUser, postId, emoji);
         console.log(`Đã xóa like của người dùng: ${idUser}`);
@@ -180,6 +251,26 @@ const handleSocketEvents = (socket, io) => {
           groupedLikes[userEmoji].push(userId);
         });
       }
+      //  Lấy thông tin bài viết gốc từ Firebase
+      const originalPost = await db.ref("posts").child(postId).once("value");
+      if (!originalPost.exists()) {
+        throw new Error("Post not found");
+      }
+      const postData = originalPost.val();
+
+      const userInfo = await UserModel.getInfoByIdUser(idUser);
+      const notificationData = {
+        type: TYPE,
+        content: `${emoji}`,
+        createdAt: Date.now(),
+        postId: postId,
+        read: false,
+        senderAvatar: userInfo[0][0].avatar || "",
+        senderName: userInfo[0][0].fullName || "",
+        senderId: idUser,
+        recipientId: postData.idUser,
+      };
+      await createAndEmitNotification(io, notificationData);
 
       io.emit("receiveReaction", { postId, groupedLikes });
 
@@ -201,14 +292,8 @@ const handleSocketEvents = (socket, io) => {
 
   socket.on("sharePost", async ({ postId, idUser, shareText }) => {
     try {
-      console.log("[DEBUG] Bắt đầu quá trình chia sẻ bài viết:", {
-        postId,
-        idUser,
-      });
-
-      // 1. Chia sẻ bài viết và lấy kết quả
+      const TYPE = "POST_SHARE";
       const result = await Post.sharePost(postId, idUser, shareText);
-      console.log("[DEBUG] Kết quả chia sẻ bài viết:", result);
 
       // 2. Lấy thông tin bài viết gốc từ Firebase
       const originalPost = await db.ref("posts").child(postId).once("value");
@@ -216,52 +301,28 @@ const handleSocketEvents = (socket, io) => {
         throw new Error("Post not found");
       }
       const postData = originalPost.val();
-      console.log("[DEBUG] Thông tin bài viết gốc từ Firebase:", postData);
 
-      // 3. Chuẩn bị dữ liệu thông báo
       const userInfo = await UserModel.getInfoByIdUser(idUser);
       const notificationData = {
-        postId,
-        postTitle: postData.title,
-        preview: postData.text.substring(0, 50),
-        senderAvatar: userInfo[0].avatar || "",
-        senderName: userInfo[0].name,
+        senderAvatar: userInfo[0][0].avatar || "",
+        senderName: userInfo[0][0].fullName || "",
+        senderId: idUser,
         shareText: shareText,
-        userAvatar: postData.userAvatar || "",
-        userName: postData.userName,
+        recipientId: postData.idUser,
+        type: TYPE,
+        createdAt: Date.now(),
+        postId: postId,
+        read: false,
       };
+      await createAndEmitNotification(io, notificationData);
 
-      // 4. Gửi thông báo về sự kiện chia sẻ cho client
       io.emit("postShared", {
-        idUserShare: idUser,
+        senderId: idUser,
         postId,
         shareCount: postData.shares || 0,
         sharedPostId: result.sharedPostId,
         success: true,
       });
-
-      // 5. Gửi thông báo cho người tạo bài viết gốc (nếu không phải người chia sẻ)
-      if (postData && postData.idUser !== idUser) {
-        console.log(
-          "[DEBUG] Gửi thông báo cho người tạo bài viết gốc:",
-          postData.idUser
-        );
-
-        // Tạo thông báo chia sẻ bài viết trong Firebase
-        const shareData = await NotificationModel.createShareNotification(
-          idUser,
-          postId,
-          postData.idUser,
-          notificationData
-        );
-
-        // Phát thông báo về sự kiện chia sẻ bài viết cho người nhận thông báo
-        io.emit("notification", {
-          originPostIdUser: postData.idUser,
-          type: "postShared",
-          data: shareData,
-        });
-      }
     } catch (error) {
       console.error("[ERROR] Lỗi khi chia sẻ bài viết:", error);
 
@@ -350,8 +411,6 @@ const handleSocketEvents = (socket, io) => {
   // Lắng nghe sự kiện lấy danh sách thông báo
   socket.on("getNotifications", async ({ idUser, limit = 20 }) => {
     try {
-      console.log("[DEBUG] Lấy danh sách thông báo cho người dùng:", idUser);
-
       // Gọi hàm getNotifications từ model để lấy danh sách thông báo
       const notifications = await NotificationModel.getNotifications(
         idUser,
