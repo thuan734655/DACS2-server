@@ -290,6 +290,16 @@ const handleSocketEvents = (socket, io) => {
     console.log("Danh sách bình luận đã được gửi đi:", comments);
   });
 
+  socket.on("getPostById", async ({ postId }) => {
+    if (postId) {
+      const postData = await Post.getPostById(postId);
+
+      socket.emit("res_getPostById", postData);
+    } else {
+      console.log("postId invalid");
+    }
+  });
+
   socket.on("sharePost", async ({ postId, idUser, shareText }) => {
     try {
       const TYPE = "POST_SHARE";

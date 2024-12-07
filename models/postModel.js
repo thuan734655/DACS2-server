@@ -41,10 +41,9 @@ class Post {
     }
   }
 
-  
   // Trả lời bình luận
   static async replyToComment({ commentId, newReplyData }) {
-    console.log("replyToCommen", commentId)
+    console.log("replyToCommen", commentId);
     try {
       const replyRef = db.ref("replies").push();
       const replyId = replyRef.key;
@@ -226,6 +225,86 @@ class Post {
     }
   }
 
+  static async getPostById(postId) {
+    try {
+      // Lấy dữ liệu của bài viết từ "posts/{postId}"
+      const postSnapshot = await db.ref(`posts/${postId}`).once("value");
+      const post = postSnapshot.val();
+      if (!post) return null;
+
+      const groupedLikes = {};
+      const infoUserList = {};
+      let commentCount = 0; // Số lượng bình luận
+      let replyCount = 0; // Số lượng phản hồi
+
+      // Xử lý thông tin lượt thích (like) theo emoji
+      if (post.likedBy) {
+        for (const [userId, emoji] of Object.entries(post.likedBy)) {
+          if (!groupedLikes[emoji]) groupedLikes[emoji] = [];
+          groupedLikes[emoji].push(userId);
+        }
+      }
+
+      // Lấy thông tin người dùng của bài viết
+      if (post.idUser) {
+        const [user] = await UserModel.getInfoByIdUser(post.idUser);
+        infoUserList[post.idUser] = { id: post.idUser, ...user[0] };
+      }
+
+      // Hàm đệ quy để đếm số lượng phản hồi (replies)
+      const countReplies = async (replyIds) => {
+        if (!replyIds || replyIds.length === 0) return 0;
+
+        const replies = await Promise.all(
+          replyIds.map(async (replyId) => {
+            const replySnapshot = await db
+              .ref(`replies/${replyId}`)
+              .once("value");
+            const reply = replySnapshot.val();
+            if (reply) {
+              // Đệ quy để đếm các replies con của reply hiện tại
+              const nestedReplies = await countReplies(reply.replies || []);
+              return nestedReplies + 1; // Đếm reply hiện tại
+            }
+            return 0;
+          })
+        );
+
+        // Trả về tổng số reply
+        return replies.reduce((total, count) => total + count, 0);
+      };
+
+      // Đếm số lượng comment và reply của từng comment
+      if (Array.isArray(post.comments)) {
+        commentCount = post.comments.length; // Số lượng bình luận
+
+        // Đếm số lượng replies cho từng bình luận
+        for (const commentId of post.comments) {
+          const commentSnapshot = await db
+            .ref(`commentsList/${commentId}`)
+            .once("value");
+          const comment = commentSnapshot.val();
+          if (comment) {
+            // Đếm replies cho bình luận
+            const replies = await countReplies(comment.replies || []);
+            replyCount += replies;
+          }
+        }
+      }
+
+     const  infoPost = {
+        post,
+        groupedLikes,
+        infoUserList,
+        commentCount: commentCount + replyCount,
+      };
+      console.log(infoPost);
+      return infoPost;
+    } catch (error) {
+      console.error("Error getting post by ID:", error);
+      throw error;
+    }
+  }
 
   // Lấy bình luận của bài viết
   static async getComments(postId) {
@@ -368,21 +447,6 @@ class Post {
 
       return { shareId: sharePostRef.key };
     } catch (error) {
-      throw error;
-    }
-  }
-
-  // Lấy thông tin bài viết theo ID
-  static async getPostById(postId) {
-    try {
-      console.log("Getting post by id:", postId);
-      const postRef = db.ref(`posts/${postId}`);
-      const snapshot = await postRef.once("value");
-      const post = snapshot.val();
-      console.log("Post data:", post);
-      return post;
-    } catch (error) {
-      console.error("Error getting post:", error);
       throw error;
     }
   }
