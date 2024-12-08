@@ -51,11 +51,11 @@ export class NotificationModel {
 
     try {
       const ref = db.ref("notifications");
-
+      
       // Lọc theo recipientId và giới hạn số lượng
       const snapshot = await ref
         .orderByChild("recipientId")
-        .equalTo(221)
+        .equalTo(userId)
         .limitToLast(limit)
         .once("value");
 
