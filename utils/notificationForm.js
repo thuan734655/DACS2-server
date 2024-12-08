@@ -33,12 +33,20 @@ export async function createAndEmitNotification(io, notificationData) {
     // Save the notification to the database
     const resultCreateNotification =
       await NotificationModel.createNewNotification(content);
-    console.log("hehehe");
     // Emit the notification to the recipient
     io.emit("notification", {
-      originPostIdUser: notificationData.recipientId,
-      type: notificationData.type,
-      notificationData: resultCreateNotification,
+      id: resultCreateNotification.id,
+      type: notificationData.type || "",
+      postId: notificationData.postId || "",
+      recipientId: notificationData.recipientId || "",
+      parentReplyID: notificationData.parentReplyID || "",
+      senderId: notificationData.senderId || "",
+      commentId: notificationData.commentId || "",
+      senderAvatar: notificationData.senderAvatar || "",
+      senderName: notificationData.senderName || "",
+      content: notificationData.content || "",
+      createdAt: Date.now(),
+      read: false,
     });
 
     console.log("Notification created and emitted:", content);

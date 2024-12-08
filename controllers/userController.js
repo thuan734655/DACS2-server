@@ -85,15 +85,14 @@ class UserController {
       await UserModel.sendFriendRequest(requesterId, receiverId);
 
       // Get requester info for notification
-      const requester = await UserModel.getInfoByIdUser(requesterId);
-
+      const [requester] = await UserModel.getInfoByIdUser(requesterId);
       // Create notification data
       const notificationData = {
         type: "FRIEND_REQUEST",
-        senderId: requesterId,
-        senderName: requester.fullName,
-        senderAvatar: requester.avatar,
-        recipientId: receiverId,
+        senderId: +requesterId,
+        senderName: requester[0].fullName,
+        senderAvatar: requester[0].avatar,
+        recipientId: +receiverId,
         createdAt: new Date(),
       };
 
@@ -161,7 +160,8 @@ class UserController {
     }
 
     try {
-      await UserModel.respondToFriendRequest(receiver_id, requester_id, accept);
+      const io = req.app.get("io"); // Lấy IO server từ app
+      await UserModel.respondToFriendRequest(receiver_id, requester_id, accept,io);
       return handleResponse(
         res,
         200,

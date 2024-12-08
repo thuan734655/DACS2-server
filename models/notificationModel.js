@@ -51,7 +51,7 @@ export class NotificationModel {
 
     try {
       const ref = db.ref("notifications");
-      
+
       // Lọc theo recipientId và giới hạn số lượng
       const snapshot = await ref
         .orderByChild("recipientId")
@@ -63,7 +63,7 @@ export class NotificationModel {
         console.log("No notifications found for userId:", userId);
         return [];
       }
-
+      console.log(snapshot.val(), "asfsfasf");
       // Chuyển đổi snapshot thành mảng
       const notifications = [];
       snapshot.forEach((childSnapshot) => {

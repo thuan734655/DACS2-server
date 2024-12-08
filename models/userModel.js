@@ -1,4 +1,5 @@
 import connectDB from "../config/ConnectDB.js";
+import { createAndEmitNotification } from "../utils/notificationForm.js";
 
 class UserModel {
   static async getInfoByIdUser(idUser) {
@@ -87,7 +88,7 @@ class UserModel {
     console.log("Friend requests result:", result);
     return result;
   }
-  static async respondToFriendRequest(receiver_id, requester_id, accept) {
+  static async respondToFriendRequest(receiver_id, requester_id, accept, io) {
     const conn = await connectDB.getConnection();
     try {
       await conn.beginTransaction();
@@ -95,7 +96,7 @@ class UserModel {
         `Xử lý phản hồi lời mời kết bạn - receiver_id: ${receiver_id}, requester_id: ${requester_id}, accept: ${accept}`
       );
 
-      // Kiểm tra xem lời mời kết bạn có tồn tại không
+      // Kiểm tra lời mời kết bạn
       const checkSql = `
         SELECT * FROM friend_requests 
         WHERE requester_id = ? AND receiver_id = ? AND status = 'pending'
@@ -111,62 +112,79 @@ class UserModel {
       }
 
       if (!accept) {
+        // Từ chối lời mời kết bạn
         const deleteRequestSql =
-          "DELETE FROM `friend_requests` WHERE requester_id = ? AND receiver_id = ?";
-        await connectDB.query(deleteRequestSql, [requester_id, receiver_id]);
+          "DELETE FROM friend_requests WHERE requester_id = ? AND receiver_id = ?";
+        await conn.query(deleteRequestSql, [requester_id, receiver_id]);
+
+        // Tạo thông báo từ chối
+        const [requester] = await UserModel.getInfoByIdUser(requester_id);
+        const notificationData = {
+          type: "FRIEND_REQUEST_DENY",
+          senderId: +requester_id,
+          senderName: requester[0]?.fullName || "Unknown",
+          senderAvatar: requester[0]?.avatar || "",
+          recipientId: +receiver_id,
+          createdAt: new Date(),
+        };
+        createAndEmitNotification(io, notificationData);
+        await conn.commit();
         return true;
       } else {
-        // Cập nhật trạng thái lời mời kết bạn
+        // Chấp nhận lời mời kết bạn
         const updateSql = `
-      UPDATE friend_requests 
-      SET status = ? 
-      WHERE requester_id = ? AND receiver_id = ? AND status = 'pending'
-    `;
-        const status = accept ? "accepted" : "rejected";
-        const [updateResult] = await conn.query(updateSql, [
-          status,
+       UPDATE friend_requests 
+       SET status = 'accepted' 
+       WHERE requester_id = ? AND receiver_id = ? AND status = 'pending'
+     `;
+        await conn.query(updateSql, [requester_id, receiver_id]);
+
+        // Kiểm tra xem đã là bạn bè chưa
+        const checkFriendSql = `
+       SELECT * FROM friends 
+       WHERE (idUser = ? AND idFriend = ?) 
+       OR (idUser = ? AND idFriend = ?)
+     `;
+        const [existingFriend] = await conn.query(checkFriendSql, [
+          receiver_id,
+          requester_id,
           requester_id,
           receiver_id,
         ]);
-        console.log("Kết quả cập nhật lời mời:", updateResult);
 
-        // Nếu chấp nhận, thêm cả hai người dùng vào bảng friends
-        if (accept) {
-          // Kiểm tra xem đã là bạn bè chưa
-          const checkFriendSql = `
-        SELECT * FROM friends 
-        WHERE (idUser = ? AND idFriend = ?) 
-        OR (idUser = ? AND idFriend = ?)
-      `;
-          const [existingFriend] = await conn.query(checkFriendSql, [
+        if (!existingFriend || existingFriend.length === 0) {
+          // Thêm bạn bè
+          const addFriendsSql = `
+         INSERT INTO friends (idUser, idFriend) 
+         VALUES (?, ?), (?, ?)
+       `;
+          await conn.query(addFriendsSql, [
             receiver_id,
             requester_id,
             requester_id,
             receiver_id,
           ]);
 
-          if (!existingFriend || existingFriend.length === 0) {
-            console.log("Chấp nhận lời mời, thêm mối quan hệ bạn bè");
-            const addFriendsSql = `
-          INSERT INTO friends (idUser, idFriend) 
-          VALUES (?, ?), (?, ?)
-        `;
-            const [addFriendsResult] = await conn.query(addFriendsSql, [
-              receiver_id,
-              requester_id,
-              requester_id,
-              receiver_id,
-            ]);
-            console.log("Kết quả thêm bạn bè:", addFriendsResult);
-          } else {
-            console.log("Đã là bạn bè từ trước");
-          }
-        }
-      }
+          // Tạo thông báo chấp nhận
+          const [requester] = await UserModel.getInfoByIdUser(requester_id);
+          const notificationData = {
+            type: "FRIEND_REQUEST_ACCEPTED",
+            senderId: +requester_id,
+            senderName: requester[0]?.fullName || "Unknown",
+            senderAvatar: requester[0]?.avatar || "",
+            recipientId: +receiver_id,
+            createdAt: new Date(),
+          };
 
-      await conn.commit();
-      console.log("Đã hoàn tất xử lý lời mời kết bạn");
-      return true;
+          createAndEmitNotification(io, notificationData);
+        } else {
+          console.log("Đã là bạn bè từ trước");
+        }
+
+        await conn.commit();
+        console.log("Đã hoàn tất xử lý lời mời kết bạn");
+        return true;
+      }
     } catch (error) {
       await conn.rollback();
       console.error("Lỗi trong quá trình xử lý lời mời kết bạn:", {
@@ -180,6 +198,7 @@ class UserModel {
       conn.release();
     }
   }
+
   static async getFriendCount(userId) {
     try {
       const sql = `
