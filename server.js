@@ -95,7 +95,19 @@ io.on("connection", (socket) => {
     // Thông báo user mới online
     socket.broadcast.emit('userConnected', userId);
   });
-
+  socket.on('updateAvatar', ({ userId, newAvatarUrl }) => {
+    // Broadcast sự kiện đến tất cả clients khác
+    socket.broadcast.emit('avatarUpdated', {
+      userId,
+      newAvatarUrl
+    });
+  });
+  socket.on('updateBackground', ({ userId, newBackgroundUrl }) => {
+    socket.broadcast.emit('backgroundUpdated', {
+      userId,
+      newBackgroundUrl
+    });
+  });
   // Handle disconnection
   socket.on("disconnect", () => {
     if (socket.userId) {
@@ -105,10 +117,7 @@ io.on("connection", (socket) => {
       console.log('Danh sách online sau khi xóa:', Array.from(onlineUsers.values()));
       socket.broadcast.emit('userDisconnected', socket.userId);
     }
-  });
-
-  // Delegate custom events to external handler
-  handleSocketEvents(socket, io);
+  }); // Delegate custom events to external handler
 });
 // Set up static file serving cho hình ảnh
 const __filename = fileURLToPath(import.meta.url);

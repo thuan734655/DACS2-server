@@ -354,7 +354,7 @@ class UserController {
       if (!req.file) {
         return handleResponse(res, 400, "fail", "No file uploaded");
       }
-
+      
       const userId = req.params.userId;
       const avatarPath = `/images/${req.file.filename}`;
 
@@ -378,7 +378,7 @@ class UserController {
       if (!req.file) {
         return handleResponse(res, 400, "fail", "No file uploaded");
       }
-
+     
       const userId = req.params.userId;
       const coverPath = `/images/${req.file.filename}`;
 
