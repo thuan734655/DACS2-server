@@ -1,13 +1,18 @@
 import mysql from "mysql2/promise";
-import dotenv from "dotenv";
-
-dotenv.config();
 
 const connectDB = mysql.createPool({
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "dacs2",
+  // host: "localhost",
+  // user: "root",
+  // password: "",
+  // database: "dacs2",
+  // waitForConnections: true,
+  // connectionLimit: 10,
+  // queueLimit: 0
+
+  host: "beeelnlvykq1ywgjbzbs-mysql.services.clever-cloud.com",
+  user: "uibhubsgfu8zpu6y",
+  password: "EkiBxp1yjheHClDVhTQM",
+  database: "beeelnlvykq1ywgjbzbs",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
