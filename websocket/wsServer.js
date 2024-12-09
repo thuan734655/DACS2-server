@@ -100,7 +100,28 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
       socket.emit("postError", { message: "Failed to create post" });
     }
   });
+  socket.on(
+    "getPosts",
+    async (userId, fetchedPostIdsFromClient, limit, page) => {
+      try {
+        const results = await Post.getAllPosts(
+          userId,
+          fetchedPostIdsFromClient,
+          page,
+          limit
+        );
 
+        socket.emit("receivePosts", {
+          posts: results.posts,
+          page: page,
+          hasMore: results.hasMore,
+        });
+      } catch (error) {
+        console.error("Error fetching posts:", error);
+        socket.emit("error", { message: "Error fetching posts" });
+      }
+    }
+  );
   socket.on("newComment", async (data) => {
     const { postId, idUser, text, listFileUrl, user } = data.comment;
     const TYPE = "POST_COMMENT";
