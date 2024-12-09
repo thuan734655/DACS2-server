@@ -438,7 +438,18 @@ const handleSocketEvents = (socket, io) => {
     }
   });
   socket.on("getNotificationNoRead", async () => {});
-
+  socket.on("deteleNotificaiton", async ({ idNotification }) => {
+    try {
+      console.log(idNotification);
+      await NotificationModel.deleteNotification(idNotification);
+      console.log(`Deleted notification ${idNotification}`);
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      socket.emit("errorDeleteNotification", {
+        message: "Failed to delete notification",
+      });
+    }
+  });
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
     connectedUsers.delete(socket.id);

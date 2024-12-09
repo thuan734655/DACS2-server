@@ -83,6 +83,31 @@ export class NotificationModel {
       return [];
     }
   }
+  static async deleteNotification(idNotification) {
+    try {
+      if (!idNotification) {
+        console.error("No notification ID provided to delete");
+        return false;
+      }
+
+      const notificationRef = db.ref(`notifications/${idNotification}`);
+      const snapshot = await notificationRef.once("value");
+
+      if (snapshot.exists()) {
+        await notificationRef.remove();
+        console.log(
+          `Notification with ID ${idNotification} deleted successfully.`
+        );
+        return true;
+      } else {
+        console.warn(`Notification with ID ${idNotification} not found.`);
+        return false;
+      }
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      throw error;
+    }
+  }
 }
 
 export default NotificationModel;
