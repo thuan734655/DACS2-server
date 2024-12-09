@@ -4,17 +4,21 @@ import { Server } from "socket.io";
 import cors from "cors";
 import { fileURLToPath } from "url";
 import path from "path";
-import handleSocketEvents from "./websocket/wsServer.js";
+import dotenv from "dotenv";
+
+// Import Routes
 import routerLogin from "./Routes/authRoutes.js";
 import routerHandlePassword from "./Routes/passwordRoutes.js";
 import routerUser from "./Routes/userRouter.js";
 import postRoutes from "./Routes/postRoutes.js";
-import dotenv from "dotenv";
+import handleSocketEvents from "./websocket/wsServer.js";
 
+// Setup environment
 dotenv.config();
 
 const PORT = process.env.PORT || 5000;
 const app = express();
+
 // Middleware configuration
 app.use(
   cors({
@@ -38,21 +42,7 @@ const io = new Server(server, {
   maxHttpBufferSize: 10 * 1024 * 1024, // Max buffer size for large payloads
 });
 
-app.set("io", io);
-
-// Handle WebSocket events
-io.on("connection", (socket) => {
-  // Add user ID mapping
-  socket.on("register", (userId) => {
-    socket.userId = userId;
-  });
-
-  // Handle disconnection
-  socket.on("disconnect", () => {});
-
-  // Delegate custom events to external handler
-  handleSocketEvents(socket, io);
-});
+// Map to track users by socket ID
 const onlineUsers = new Map();
 
 // Hàm lấy danh sách userId của người dùng đang online
@@ -66,24 +56,22 @@ const getAllOnlineUsers = () => {
 io.on("connection", (socket) => {
   console.log("Có người dùng kết nối, socket ID:", socket.id);
 
-  // Add user ID mapping
-  socket.on("register", (userId) => {
+  // Lấy idUser từ query khi kết nối
+  const userId = socket.handshake.query.idUser;
+  if (userId) {
     socket.userId = userId;
-  });
+    console.log(`User ${userId} đã kết nối với socket ID ${socket.id}`);
+    onlineUsers.set(socket.id, userId);
+    console.log(onlineUsers, ">>>?");
+  }
 
   // Khi user kết nối và đăng nhập
   socket.on("userConnected", (userId) => {
-    console.log(`User ${userId} đã kết nối với socket ID ${socket.id}`);
+    console.log(`User ${userId} đã kết nối với ] ID ${socket.id}`);
     // Lưu socket.id và userId
     socket.userId = userId;
     onlineUsers.set(socket.id, userId);
-
-    // Log theo nhiều cách khác nhau để debug
-    console.log("Map size:", onlineUsers.size);
-    console.log("Map entries:", [...onlineUsers.entries()]);
-    console.log("Socket IDs:", [...onlineUsers.keys()]);
-    console.log("User IDs:", [...onlineUsers.values()]);
-
+    console.log(onlineUsers, ">>>?");
     // Gửi danh sách users online cho tất cả clients
     const onlineList = getAllOnlineUsers();
     console.log("Gửi danh sách online cho clients:", onlineList);
@@ -93,7 +81,7 @@ io.on("connection", (socket) => {
     socket.broadcast.emit("userConnected", userId);
   });
 
-  // Handle disconnection
+  // Thông báo khi user ngắt kết nối
   socket.on("disconnect", () => {
     if (socket.userId) {
       console.log(`User ${socket.userId} đã ngắt kết nối`);
@@ -107,18 +95,26 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Delegate custom events to external handler
-  handleSocketEvents(socket, io);
+  // Handle authentication event
+  socket.on("authenticate", (userId) => {
+    console.log(`User ${userId} đã được xác thực`);
+    // Xử lý logic xác thực ở đây nếu cần (ví dụ: kiểm tra userId trong cơ sở dữ liệu)
+  });
+
+  handleSocketEvents(socket, io, onlineUsers);
 });
-// Set up static file serving cho hình ảnh
+
+// Serve static files for images
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use("/images", express.static(path.join(__dirname, "images")));
 
+// Use routes
 app.use("/", routerLogin);
 app.use("/", routerHandlePassword);
 app.use("/api", routerUser);
 app.use("/api", postRoutes);
+
 // Route for fetching conversation partner
 app.get("/api/conversations/partner/:currentUserId", async (req, res) => {
   try {
@@ -127,6 +123,7 @@ app.get("/api/conversations/partner/:currentUserId", async (req, res) => {
       return res.status(400).json({ message: "Invalid user ID" });
     }
 
+    // Sample query to fetch partner of the conversation
     const [conversations] = await connectDB.query(
       `SELECT CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END AS partnerId 
        FROM conversations 

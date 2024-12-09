@@ -5,32 +5,20 @@ import UserModel from "../models/userModel.js";
 import handleFileWebSocket from "../utils/handleFileWebSocket.js";
 import { createAndEmitNotification } from "../utils/notificationForm.js";
 
-// Track connected users to avoid duplicate connections
-const connectedUsers = new Map();
-
-const handleSocketEvents = (socket, io) => {
-  // Check if socket is already connected
-  if (connectedUsers.has(socket.id)) {
-    console.log("Socket already connected:", socket.id);
-    return;
-  }
-  // Add to connected users
-  connectedUsers.set(socket.id, true);
-  console.log("User connected:", socket.id);
-
+const handleSocketEvents = (socket, io, onlineUsers) => {
   socket.on("newPost", async ({ post }) => {
     console.log("Post creation started");
     try {
-      // Handle file uploads using existing utility
+      // Xử lý tệp tin nếu có
       let mediaUrls = [];
       if (post.listFileUrl && post.listFileUrl.length > 0) {
         mediaUrls = handleFileWebSocket(post.listFileUrl);
       }
 
-      // Get user info
+      // Lấy thông tin người dùng
       const [userInfo] = await UserModel.getInfoByIdUser(post.idUser);
 
-      // Create final post object
+      // Chuẩn bị dữ liệu bài đăng
       const postData = {
         text: post.text,
         idUser: post.idUser,
@@ -49,12 +37,13 @@ const handleSocketEvents = (socket, io) => {
         shares: 0,
         comments: [],
         createdAt: Date.now(),
+        privacy: post.privacy || "public", // Quyền riêng tư mặc định là "public"
       };
 
-      // Save post to database
+      // Lưu bài đăng vào cơ sở dữ liệu
       const postId = await Post.createPost(postData);
 
-      // Create response with user info
+      // Dữ liệu trả về
       const postResponse = {
         postId: postId,
         ...postData,
@@ -65,9 +54,47 @@ const handleSocketEvents = (socket, io) => {
         commentCount: 0,
       };
 
-      // Broadcast to all clients
-      io.emit("receiveNewPost", { post: postResponse });
-      console.log("New post broadcasted successfully");
+      // Lấy danh sách bạn bè
+      const friendsList = await UserModel.getFriendsList(post.idUser);
+
+      // Phát bài đăng dựa trên quyền riêng tư
+      if (postData.privacy === "public") {
+        io.emit("receiveNewPost", { post: postResponse });
+      } else if (postData.privacy === "friends") {
+        console.log(onlineUsers, "fdsf");
+        // Lặp qua danh sách bạn bè và gửi thông báo cho những người đang online
+        friendsList.forEach((idUser) => {
+          // Tìm socket.id của user dựa trên idUser trong onlineUsers
+          let targetSocketId = null;
+
+          // Duyệt qua các phần tử trong onlineUsers để tìm socketId tương ứng với idUser
+          onlineUsers.forEach((userId, socketId) => {
+            if (userId === idUser.idUser) {
+              targetSocketId = socketId;
+            }
+          });
+
+          // Kiểm tra nếu tìm thấy socket.id của user đó và gửi bài đăng
+          if (targetSocketId) {
+            io.to(targetSocketId).emit("receiveNewPost", {
+              post: postResponse,
+            });
+          } else {
+            console.log(`User ${idUser} is not online.`);
+          }
+        });
+      } else if (postData.privacy === "private") {
+        let targetSocketId = null;
+        onlineUsers.forEach((userId, socketId) => {
+          if (userId == post.idUser) {
+            targetSocketId = socketId;
+          }
+        });
+        if (targetSocketId) {
+          io.to(targetSocketId).emit("receiveNewPost", { post: postResponse });
+        }
+      }
+      console.log(`Post broadcasted with privacy: ${postData.privacy}`);
     } catch (error) {
       console.error("Error creating post:", error);
       socket.emit("postError", { message: "Failed to create post" });
@@ -452,7 +479,7 @@ const handleSocketEvents = (socket, io) => {
   });
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
-    connectedUsers.delete(socket.id);
+    onlineUsers.delete(socket.id);
   });
 };
 
