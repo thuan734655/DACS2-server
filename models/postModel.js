@@ -140,15 +140,23 @@ class Post {
     }
   }
 
-  static async getAllPosts() {
+  static async getAllPosts(userId) {
     try {
       // Lấy tất cả các bài viết từ Firebase
       const postsSnapshot = await db.ref("posts").once("value");
       const posts = postsSnapshot.val() || {};
       const infoPost = {};
 
-      await Promise.all(
-        Object.entries(posts).map(async ([postId, post]) => {
+      // Lấy danh sách bạn bè của người dùng
+      const friendsList = await UserModel.getFriendsList(userId);
+
+      // Duyệt qua tất cả các bài viết
+      for (const [postId, post] of Object.entries(posts)) {
+        // Kiểm tra quyền riêng tư bài viết
+        if (
+          post.privacy === "public" ||
+          (post.privacy === "friends" && friendsList.includes(post.idUser))
+        ) {
           const groupedLikes = {}; // Chứa thông tin like theo emoji
           const infoUserList = {}; // Thông tin người dùng
           let commentCount = 0; // Số lượng bình luận
@@ -209,15 +217,18 @@ class Post {
             }
           }
 
-          // Đưa dữ liệu đã xử lý vào infoPost (chỉ chứa số lượng comment và reply)
+          // Đưa dữ liệu vào infoPost
           infoPost[postId] = {
             post,
             groupedLikes,
             infoUserList,
             commentCount: commentCount + replyCount,
           };
-        })
-      );
+        }
+      }
+
+      console.log("Fetched post", infoPost);
+      // Trả về infoPost chứa tất cả bài viết hợp lệ
       return infoPost;
     } catch (error) {
       console.error("Error getting all posts:", error);
@@ -292,7 +303,7 @@ class Post {
         }
       }
 
-     const  infoPost = {
+      const infoPost = {
         post,
         groupedLikes,
         infoUserList,

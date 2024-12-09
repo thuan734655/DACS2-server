@@ -69,7 +69,7 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
 
           // Duyệt qua các phần tử trong onlineUsers để tìm socketId tương ứng với idUser
           onlineUsers.forEach((userId, socketId) => {
-            if (userId === idUser.idUser) {
+            if (userId == idUser.idUser) {
               targetSocketId = socketId;
             }
           });

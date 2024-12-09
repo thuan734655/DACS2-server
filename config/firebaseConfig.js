@@ -6,7 +6,7 @@ import "firebase/firestore";
 import "firebase/storage";
 import "firebase/messaging";
 const serviceAccount = JSON.parse(
-  fs.readFileSync("./config/dacs-3847d-firebase-adminsdk-oe6et-0973c4ad74.json")
+  fs.readFileSync("./config/dacs-3847d-firebase-adminsdk-oe6et-daa57bb832.json")
 );
 
 admin.initializeApp({
