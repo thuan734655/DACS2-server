@@ -1,6 +1,8 @@
 import db from "../config/firebaseConfig.js";
 import NotificationModel from "../models/notificationModel.js";
 import Post from "../models/postModel.js";
+import ReportModel from "../models/reportModel.js";
+import ReportMode from "../models/reportModel.js";
 import UserModel from "../models/userModel.js";
 import handleFileWebSocket from "../utils/handleFileWebSocket.js";
 import { createAndEmitNotification } from "../utils/notificationForm.js";
@@ -69,7 +71,7 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
 
           // Duyệt qua các phần tử trong onlineUsers để tìm socketId tương ứng với idUser
           onlineUsers.forEach((userId, socketId) => {
-            if (userId == idUser.idUser) {
+            if (userId == idUser.idUser || userId == post.idUser) {
               targetSocketId = socketId;
             }
           });
@@ -82,6 +84,7 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
           } else {
             console.log(`User ${idUser} is not online.`);
           }
+         
         });
       } else if (postData.privacy === "private") {
         let targetSocketId = null;
@@ -100,7 +103,28 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
       socket.emit("postError", { message: "Failed to create post" });
     }
   });
+  socket.on(
+    "getPosts",
+    async (userId, fetchedPostIdsFromClient, limit, page) => {
+      try {
+        const results = await Post.getAllPosts(
+          userId,
+          fetchedPostIdsFromClient,
+          page,
+          limit
+        );
 
+        socket.emit("receivePosts", {
+          posts: results.posts,
+          page: page,
+          hasMore: results.hasMore,
+        });
+      } catch (error) {
+        console.error("Error fetching posts:", error);
+        socket.emit("error", { message: "Error fetching posts" });
+      }
+    }
+  );
   socket.on("newComment", async (data) => {
     const { postId, idUser, text, listFileUrl, user } = data.comment;
     const TYPE = "POST_COMMENT";
@@ -477,6 +501,18 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
       });
     }
   });
+  socket.on("report", async (content) => {
+    const result = await ReportModel.createReportPost(content);
+
+    if (content.type === "POST") {
+      socket.emit("responseReportPost", result);
+    } else if (content.type === "COMMENT") {
+      socket.emit("responseReportComment", result);
+    } else {
+      socket.emit("responseReportReply", result);
+    }
+  });
+
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
     onlineUsers.delete(socket.id);

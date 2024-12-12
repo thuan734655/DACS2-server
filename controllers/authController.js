@@ -5,13 +5,16 @@ import sendOTP from "../models/sendOTPModel.js";
 import updateInfoDevice from "../models/updateInfoDeviceModel.js";
 import updateOTPService from "../models/updateOTPServiceModel.js";
 import { handleResponse } from "../utils/createResponse.js";
+import dotenv from "dotenv";
 
-const SECRET_KEY = process.env.JWT_SECRET || "your-secret-key";
+dotenv.config();
+
+const SECRET_KEY = process.env.JWT_SECRET || "key";
 
 const authService = {
   async findUserByEmail(email) {
     const [rows] = await connectDB.query(
-      "SELECT u.idUser, u.fullName, u.avatar, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?",
+      "SELECT u.idUser, u.fullName, u.avatar,infoDevice, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?",
       [email]
     );
     return rows[0];
@@ -27,10 +30,11 @@ const authService = {
   },
 
   async process2FA(user, email, ip) {
+    console.log(user.infoDevice && ip != user.infoDevice, "check 2FA");
+    console.log(ip, user.infoDevice, "heh>>???fsd", user);
     if (user.infoDevice && ip !== user.infoDevice) {
       const otp = await sendOTP(email);
       await updateOTPService(otp, email);
-
       return true;
     }
 
@@ -99,6 +103,7 @@ class AuthController {
       const needs2FA = await authService.process2FA(user, email, ip);
 
       if (needs2FA) {
+        console.log("2FA ok");
         return handleResponse(res, 202, true, "2FA required", {
           requires2FA: true,
         });

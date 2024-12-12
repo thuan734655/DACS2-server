@@ -6,5 +6,5 @@ const router = express.Router();
 router.post("/forgotten", PasswordController.forgotten);
 router.post("/verify-otp", PasswordController.verifyOtp);
 router.post("/change-password", PasswordController.changePassword);
-
+router.post("/requestOTP", )
 export default router;

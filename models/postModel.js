@@ -140,18 +140,42 @@ class Post {
     }
   }
 
-  static async getAllPosts(userId) {
+  static async getAllPosts(
+    userId,
+    fetchedPostIdsFromClient,
+    page = 1,
+    limit = 10
+  ) {
     try {
       // Lấy tất cả các bài viết từ Firebase
-      const postsSnapshot = await db.ref("posts").once("value");
+      const postsSnapshot = await db
+        .ref("posts")
+        .orderByChild("createdAt")
+        .once("value");
       const posts = postsSnapshot.val() || {};
       const infoPost = {};
 
       // Lấy danh sách bạn bè của người dùng
       const friendsList = await UserModel.getFriendsList(userId);
 
-      // Duyệt qua tất cả các bài viết
-      for (const [postId, post] of Object.entries(posts)) {
+      // Chuyển đổi object posts thành mảng và sắp xếp theo thời gian tạo (mới nhất trước)
+      const sortedPosts = Object.entries(posts).sort(
+        (a, b) => b[1].createdAt - a[1].createdAt
+      );
+
+      // Tính toán vị trí bắt đầu và kết thúc cho phân trang
+      const start = (page - 1) * limit;
+      const end = start + limit;
+
+      // Lọc các bài viết đã fetch trước đó
+      const newPosts = sortedPosts.filter(
+        ([postId]) => !fetchedPostIdsFromClient.includes(postId)
+      );
+
+      // Duyệt qua các bài viết mới trong phạm vi phân trang
+      for (let i = start; i < end && i < newPosts.length; i++) {
+        const [postId, post] = newPosts[i];
+
         // Kiểm tra quyền riêng tư bài viết
         if (
           post.privacy === "public" ||
@@ -227,9 +251,12 @@ class Post {
         }
       }
 
-      console.log("Fetched post", infoPost);
-      // Trả về infoPost chứa tất cả bài viết hợp lệ
-      return infoPost;
+      console.log("Fetched posts", infoPost);
+      // Trả về infoPost chứa các bài viết hợp lệ đã phân trang
+      return {
+        posts: infoPost,
+        hasMore: newPosts.length > end,
+      };
     } catch (error) {
       console.error("Error getting all posts:", error);
       throw error;
