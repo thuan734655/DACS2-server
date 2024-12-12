@@ -67,7 +67,7 @@ io.on("connection", (socket) => {
 
   // Khi user kết nối và đăng nhập
   socket.on("userConnected", (userId) => {
-    console.log(`User ${userId} đã kết nối với ] ID ${socket.id}`);
+    console.log(`User ${userId} đã kết nối với ID  ${socket.id}`);
     // Lưu socket.id và userId
     socket.userId = userId;
     onlineUsers.set(socket.id, userId);

@@ -237,6 +237,184 @@ class UserController {
       return handleResponse(res, 500, "error", "Lỗi máy chủ");
     }
   }
+  static async getUserInfo(req, res) {
+    const userId = req.params.userId;
+
+    if (!userId) {
+      return handleResponse(res, 400, "fail", "userId is required.");
+    }
+
+    try {
+      const userInfo = await UserModel.getUserInfo(userId);
+
+      if (!userInfo) {
+        return handleResponse(res, 404, "fail", "User not found.");
+      }
+
+      return handleResponse(
+        res,
+        200,
+        "success",
+        "User info retrieved successfully.",
+        userInfo
+      );
+    } catch (error) {
+      console.error("Error getting user info:", error);
+      return handleResponse(res, 500, "error", "Internal server error.");
+    }
+  }
+
+  static async updateUserInfo(req, res) {
+    const userId = req.params.userId;
+    const info = req.body;
+
+    if (!userId) {
+      return handleResponse(res, 400, "fail", "userId is required.");
+    }
+
+    if (!info || Object.keys(info).length === 0) {
+      return handleResponse(
+        res,
+        400,
+        "fail",
+        "Update information is required."
+      );
+    }
+
+    try {
+      const updated = await UserModel.updateUserInfo(userId, info);
+
+      if (!updated) {
+        return handleResponse(
+          res,
+          404,
+          "fail",
+          "User not found or update failed."
+        );
+      }
+
+      return handleResponse(
+        res,
+        200,
+        "success",
+        "User info updated successfully."
+      );
+    } catch (error) {
+      console.error("Error updating user info:", error);
+      return handleResponse(res, 500, "error", "Internal server error.");
+    }
+  }
+
+  static async updateOnlineStatus(req, res) {
+    const { idUser } = req.params;
+    const { isOnline } = req.body;
+
+    if (!idUser) {
+      return handleResponse(res, 400, "fail", "idUser is required.");
+    }
+
+    try {
+      await UserModel.updateOnlineStatus(idUser, isOnline);
+      return handleResponse(
+        res,
+        200,
+        "success",
+        "Online status updated successfully"
+      );
+    } catch (error) {
+      console.error("Error updating online status:", error);
+      return handleResponse(res, 500, "error", "Internal server error");
+    }
+  }
+
+  static async getOnlineFriends(req, res) {
+    const { idUser } = req.params;
+
+    if (!idUser) {
+      return handleResponse(res, 400, "fail", "idUser is required.");
+    }
+
+    try {
+      const onlineFriends = await UserModel.getOnlineFriends(idUser);
+      return handleResponse(
+        res,
+        200,
+        "success",
+        "Online friends retrieved successfully",
+        onlineFriends
+      );
+    } catch (error) {
+      console.error("Error getting online friends:", error);
+      return handleResponse(res, 500, "error", "Internal server error");
+    }
+  }
+  async getOnlineFriends(req, res) {
+    try {
+      const userId = req.params.userId; // Lấy ID user từ params
+      console.log(userId);
+
+      const onlineFriends = await UserModel.getOnlineFriends(userId); // Gọi hàm static từ Model
+      return handleResponse(
+        res,
+        200,
+        "Lấy danh sách bạn bè online thành công",
+        onlineFriends
+      );
+    } catch (error) {
+      console.error("Lỗi khi lấy danh sách bạn bè online:", error);
+      return handleResponse(res, 500, "Lỗi server", null);
+    }
+  }
+
+  static async updateAvatar(req, res) {
+    const io = req.app.get("io");
+    try {
+      if (!req.file) {
+        return handleResponse(res, 400, "fail", "No file uploaded");
+      }
+      
+      const userId = req.params.userId;
+      const avatarPath = `/images/${req.file.filename}`;
+
+      await UserModel.updateUserAvatar(userId, avatarPath,io);
+
+      return handleResponse(
+        res,
+        200,
+        "success",
+        "Avatar updated successfully",
+        { avatarPath }
+      );
+    } catch (error) {
+      console.error("Error updating avatar:", error);
+      return handleResponse(res, 500, "error", "Internal server error");
+    }
+  }
+
+  static async updateCover(req, res) {
+    const io = req.app.get("io");
+    try {
+      if (!req.file) {
+        return handleResponse(res, 400, "fail", "No file uploaded");
+      }
+     
+      const userId = req.params.userId;
+      const coverPath = `/images/${req.file.filename}`;
+
+      await UserModel.updateUserCover(userId, coverPath,io);
+
+      return handleResponse(
+        res,
+        200,
+        "success",
+        "Cover image updated successfully",
+        { coverPath }
+      );
+    } catch (error) {
+      console.error("Error updating cover image:", error);
+      return handleResponse(res, 500, "error", "Internal server error");
+    }
+  }
 }
 
 export default UserController;
