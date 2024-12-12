@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 
-dotenv.config(); // Cấu hình biến môi trường
+dotenv.config();
 
 const handleEmail = (data = {}) => {
   const { email, content, title, subject } = data;
@@ -12,8 +12,8 @@ const handleEmail = (data = {}) => {
     port: 587,
     secure: false, // true for port 465, false for other ports
     auth: {
-      user: process.env.USER, // email từ biến môi trường
-      pass: process.env.APP_PASSWORD, // mật khẩu ứng dụng từ biến môi trường
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD,
     },
   });
 
