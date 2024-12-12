@@ -1,17 +1,17 @@
-import express from "express";
-import http from "http";
-import { Server } from "socket.io";
-import cors from "cors";
-import { fileURLToPath } from "url";
-import path from "path";
-import dotenv from "dotenv";
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const cors = require("cors");
+const path = require("path");
+const dotenv = require("dotenv");
+const { fileURLToPath } = require("url");
 
 // Import Routes
-import routerLogin from "./Routes/authRoutes.js";
-import routerHandlePassword from "./Routes/passwordRoutes.js";
-import routerUser from "./Routes/userRouter.js";
-import postRoutes from "./Routes/postRoutes.js";
-import handleSocketEvents from "./websocket/wsServer.js";
+const routerLogin = require("./Routes/authRoutes");
+const routerHandlePassword = require("./Routes/passwordRoutes");
+const routerUser = require("./Routes/userRouter");
+const postRoutes = require("./Routes/postRoutes");
+const handleSocketEvents = require("./websocket/wsServer");
 
 // Setup environment
 dotenv.config();
@@ -42,6 +42,7 @@ const io = new Server(server, {
   maxHttpBufferSize: 10 * 1024 * 1024, // Max buffer size for large payloads
 });
 app.set('io', io);
+
 // Map to track users by socket ID
 const onlineUsers = new Map();
 

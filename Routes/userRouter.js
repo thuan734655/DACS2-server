@@ -1,6 +1,6 @@
-import express from "express";
-import UserController from "../controllers/userController.js";
-import { upload } from "../middlewares/upload.js";
+const express = require("express");
+const UserController = require("../controllers/userController");
+const { upload } = require("../middlewares/upload");
 
 const router = express.Router();
 
@@ -35,4 +35,4 @@ router.post(
   UserController.updateCover
 );
 
-export default router;
+module.exports = router;

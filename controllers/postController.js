@@ -1,8 +1,8 @@
-import Post from "../models/postModel.js";
-import { handleResponse } from "../utils/createResponse.js";
+const Post = require("../models/postModel");
+const { handleResponse } = require("../utils/createResponse");
 
 // Tạo bài viết mới
-export const createPost = async (req, res) => {
+const createPost = async (req, res) => {
   const { text, idUser, textColor, backgroundColor, comments } = req.body;
 
   let mediaUrls;
@@ -12,27 +12,27 @@ export const createPost = async (req, res) => {
     mediaUrls = req.files.map((file) => `/images/${file.filename}`);
   }
 
-  const newPost = {
-    text,
-    idUser,
-    textColor,
-    backgroundColor,
-    mediaUrls,
-    likes: {
-      "👍": 0,
-      "❤️": 0,
-      "😂": 0,
-      "😢": 0,
-      "😡": 0,
-      "😲": 0,
-      "🥳": 0,
-    },
-    shares: 0,
-    comments: comments ? [] : 0, // Đảm bảo comments là một mảng
-    createdAt: Date.now(),
-  };
-
   try {
+    const newPost = {
+      text,
+      idUser,
+      textColor,
+      backgroundColor,
+      mediaUrls,
+      likes: {
+        "👍": 0,
+        "❤️": 0,
+        "😂": 0,
+        "😢": 0,
+        "😡": 0,
+        "😲": 0,
+        "🥳": 0,
+      },
+      shares: 0,
+      comments: comments ? [] : 0, // Đảm bảo comments là một mảng
+      createdAt: Date.now(),
+    };
+
     const postId = await Post.createPost(newPost); // Tạo bài viết và lấy ID bài viết
     return handleResponse(res, 201, true, "Post created successfully", {
       postId,
@@ -43,7 +43,7 @@ export const createPost = async (req, res) => {
 };
 
 // Lấy danh sách người đã thích bài viết
-export const getLikes = async (postId) => {
+const getLikes = async (postId) => {
   try {
     const likes = await Post.getLikes(postId);
     return likes;
@@ -53,7 +53,7 @@ export const getLikes = async (postId) => {
 };
 
 // Thêm bình luận vào bài viết
-export const addComment = async (req, res) => {
+const addComment = async (req, res) => {
   const { postId } = req.params;
   const { comment } = req.body; // comment là nội dung bình luận
 
@@ -74,7 +74,7 @@ export const addComment = async (req, res) => {
 };
 
 // Trả lời bình luận
-export const replyToComment = async (req, res) => {
+const replyToComment = async (req, res) => {
   const { postId, commentId } = req.params;
   const { reply } = req.body; // reply chứa thông tin phản hồi
 
@@ -124,7 +124,7 @@ export const replyToComment = async (req, res) => {
 // };
 
 // Thích bài viết với emoji cụ thể, không cần `res` cho WebSocket
-export const likePost = async (postId, emoji, idUser) => {
+const likePost = async (postId, emoji, idUser) => {
   // Kiểm tra nếu emoji không thuộc danh sách emoji hợp lệ
   const validEmojis = ["👍", "❤️", "😂", "😢", "😡", "😲", "🥳"];
   if (!validEmojis.includes(emoji)) {
@@ -154,7 +154,7 @@ export const likePost = async (postId, emoji, idUser) => {
 };
 
 // Lấy tất cả bài viết
-export const getAllPosts = async (req, res) => {
+const getAllPosts = async (req, res) => {
   try {
     const postsData = await Post.getAllPosts();
     if (!postsData || Object.keys(postsData).length === 0) {
@@ -174,4 +174,13 @@ export const getAllPosts = async (req, res) => {
     console.log("Error fetching posts:", err);
     return handleResponse(res, 500, false, "Error fetching posts", err);
   }
+};
+
+module.exports = {
+  createPost,
+  getLikes,
+  addComment,
+  replyToComment,
+  likePost,
+  getAllPosts,
 };
