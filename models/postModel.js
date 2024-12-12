@@ -40,6 +40,45 @@ class Post {
       throw error;
     }
   }
+
+  // Trả lời bình luận
+  static async replyToComment({ commentId, newReplyData }) {
+    console.log("replyToCommen", commentId);
+    try {
+      const replyRef = db.ref("replies").push();
+      const replyId = replyRef.key;
+
+      await replyRef.set({ ...newReplyData, replyId, commentId });
+
+      await db
+        .ref(`commentsList/${commentId}/replies`)
+        .transaction((replies) => [...(replies || []), replyId]);
+
+      return replyId;
+    } catch (error) {
+      console.error("Error replying to comment:", error);
+      throw error;
+    }
+  }
+
+  // Trả lời một phản hồi (reply to reply)
+  static async replyToReply({ replyId, newReplyData }) {
+    try {
+      const replyRef = db.ref("replies").push();
+      const newReplyId = replyRef.key;
+
+      await replyRef.set({ ...newReplyData, replyId: newReplyId });
+
+      await db
+        .ref(`replies/${replyId}/replies`)
+        .transaction((replies) => [...(replies || []), newReplyId]);
+
+      return newReplyId;
+    } catch (error) {
+      console.error("Error replying to reply:", error);
+      throw error;
+    }
+  }
   // Lấy danh sách người đã thích bài viết
   static async getLikes(postId) {
     try {
@@ -101,15 +140,47 @@ class Post {
     }
   }
 
-  static async getAllPosts() {
+  static async getAllPosts(
+    userId,
+    fetchedPostIdsFromClient,
+    page = 1,
+    limit = 10
+  ) {
     try {
       // Lấy tất cả các bài viết từ Firebase
-      const postsSnapshot = await db.ref("posts").once("value");
+      const postsSnapshot = await db
+        .ref("posts")
+        .orderByChild("createdAt")
+        .once("value");
       const posts = postsSnapshot.val() || {};
       const infoPost = {};
 
-      await Promise.all(
-        Object.entries(posts).map(async ([postId, post]) => {
+      // Lấy danh sách bạn bè của người dùng
+      const friendsList = await UserModel.getFriendsList(userId);
+
+      // Chuyển đổi object posts thành mảng và sắp xếp theo thời gian tạo (mới nhất trước)
+      const sortedPosts = Object.entries(posts).sort(
+        (a, b) => b[1].createdAt - a[1].createdAt
+      );
+
+      // Tính toán vị trí bắt đầu và kết thúc cho phân trang
+      const start = (page - 1) * limit;
+      const end = start + limit;
+
+      // Lọc các bài viết đã fetch trước đó
+      const newPosts = sortedPosts.filter(
+        ([postId]) => !fetchedPostIdsFromClient.includes(postId)
+      );
+
+      // Duyệt qua các bài viết mới trong phạm vi phân trang
+      for (let i = start; i < end && i < newPosts.length; i++) {
+        const [postId, post] = newPosts[i];
+
+        // Kiểm tra quyền riêng tư bài viết
+        if (
+          post.privacy === "public" ||
+          (post.privacy === "friends" && friendsList.includes(post.idUser))
+        ) {
           const groupedLikes = {}; // Chứa thông tin like theo emoji
           const infoUserList = {}; // Thông tin người dùng
           let commentCount = 0; // Số lượng bình luận
@@ -170,56 +241,105 @@ class Post {
             }
           }
 
-          // Đưa dữ liệu đã xử lý vào infoPost (chỉ chứa số lượng comment và reply)
+          // Đưa dữ liệu vào infoPost
           infoPost[postId] = {
             post,
             groupedLikes,
             infoUserList,
             commentCount: commentCount + replyCount,
           };
-        })
-      );
-      return infoPost;
+        }
+      }
+
+      console.log("Fetched posts", infoPost);
+      // Trả về infoPost chứa các bài viết hợp lệ đã phân trang
+      return {
+        posts: infoPost,
+        hasMore: newPosts.length > end,
+      };
     } catch (error) {
       console.error("Error getting all posts:", error);
       throw error;
     }
   }
 
-  // Trả lời bình luận
-  static async replyToComment({ commentId, newReplyData }) {
+  static async getPostById(postId) {
     try {
-      const replyRef = db.ref("replies").push();
-      const replyId = replyRef.key;
+      // Lấy dữ liệu của bài viết từ "posts/{postId}"
+      const postSnapshot = await db.ref(`posts/${postId}`).once("value");
+      const post = postSnapshot.val();
+      if (!post) return null;
 
-      await replyRef.set({ ...newReplyData, replyId, commentId });
+      const groupedLikes = {};
+      const infoUserList = {};
+      let commentCount = 0; // Số lượng bình luận
+      let replyCount = 0; // Số lượng phản hồi
 
-      await db
-        .ref(`commentsList/${commentId}/replies`)
-        .transaction((replies) => [...(replies || []), replyId]);
+      // Xử lý thông tin lượt thích (like) theo emoji
+      if (post.likedBy) {
+        for (const [userId, emoji] of Object.entries(post.likedBy)) {
+          if (!groupedLikes[emoji]) groupedLikes[emoji] = [];
+          groupedLikes[emoji].push(userId);
+        }
+      }
 
-      return replyId;
+      // Lấy thông tin người dùng của bài viết
+      if (post.idUser) {
+        const [user] = await UserModel.getInfoByIdUser(post.idUser);
+        infoUserList[post.idUser] = { id: post.idUser, ...user[0] };
+      }
+
+      // Hàm đệ quy để đếm số lượng phản hồi (replies)
+      const countReplies = async (replyIds) => {
+        if (!replyIds || replyIds.length === 0) return 0;
+
+        const replies = await Promise.all(
+          replyIds.map(async (replyId) => {
+            const replySnapshot = await db
+              .ref(`replies/${replyId}`)
+              .once("value");
+            const reply = replySnapshot.val();
+            if (reply) {
+              // Đệ quy để đếm các replies con của reply hiện tại
+              const nestedReplies = await countReplies(reply.replies || []);
+              return nestedReplies + 1; // Đếm reply hiện tại
+            }
+            return 0;
+          })
+        );
+
+        // Trả về tổng số reply
+        return replies.reduce((total, count) => total + count, 0);
+      };
+
+      // Đếm số lượng comment và reply của từng comment
+      if (Array.isArray(post.comments)) {
+        commentCount = post.comments.length; // Số lượng bình luận
+
+        // Đếm số lượng replies cho từng bình luận
+        for (const commentId of post.comments) {
+          const commentSnapshot = await db
+            .ref(`commentsList/${commentId}`)
+            .once("value");
+          const comment = commentSnapshot.val();
+          if (comment) {
+            // Đếm replies cho bình luận
+            const replies = await countReplies(comment.replies || []);
+            replyCount += replies;
+          }
+        }
+      }
+
+      const infoPost = {
+        post,
+        groupedLikes,
+        infoUserList,
+        commentCount: commentCount + replyCount,
+      };
+      console.log(infoPost);
+      return infoPost;
     } catch (error) {
-      console.error("Error replying to comment:", error);
-      throw error;
-    }
-  }
-
-  // Trả lời một phản hồi (reply to reply)
-  static async replyToReply({ replyId, newReplyData }) {
-    try {
-      const replyRef = db.ref("replies").push();
-      const newReplyId = replyRef.key;
-
-      await replyRef.set({ ...newReplyData, replyId: newReplyId });
-
-      await db
-        .ref(`replies/${replyId}/replies`)
-        .transaction((replies) => [...(replies || []), newReplyId]);
-
-      return newReplyId;
-    } catch (error) {
-      console.error("Error replying to reply:", error);
+      console.error("Error getting post by ID:", error);
       throw error;
     }
   }
@@ -365,21 +485,6 @@ class Post {
 
       return { shareId: sharePostRef.key };
     } catch (error) {
-      throw error;
-    }
-  }
-
-  // Lấy thông tin bài viết theo ID
-  static async getPostById(postId) {
-    try {
-      console.log("Getting post by id:", postId);
-      const postRef = db.ref(`posts/${postId}`);
-      const snapshot = await postRef.once("value");
-      const post = snapshot.val();
-      console.log("Post data:", post);
-      return post;
-    } catch (error) {
-      console.error("Error getting post:", error);
       throw error;
     }
   }

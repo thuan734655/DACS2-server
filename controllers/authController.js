@@ -11,17 +11,18 @@ const SECRET_KEY = process.env.JWT_SECRET || "your-secret-key";
 const authService = {
   async findUserByEmail(email) {
     const [rows] = await connectDB.query(
-      "SELECT u.idUser, u.fullName, u.avatar, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?",
+      "SELECT u.idUser, u.fullName, u.avatar, u.background, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?",
       [email]
     );
+    console.log("Kết quả truy vấn cơ sở dữ liệu:", rows[0]);
     return rows[0];
   },
 
   async validateCredentials(email, password) {
     const user = await this.findUserByEmail(email);
-    if (!user) throw { status: 404, message: "User not found" };
+    if (!user) throw { status: 404, message: "Không tìm thấy người dùng" };
     const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) throw { status: 401, message: "Invalid credentials" };
+    if (!isValidPassword) throw { status: 401, message: "Thông tin đăng nhập không hợp lệ" };
 
     return user;
   },
@@ -71,13 +72,13 @@ class AuthController {
     try {
       const { email, password, ip } = req.body;
       const query =
-        "SELECT u.idUser, u.fullName, u.avatar, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?";
+        "SELECT u.idUser, u.fullName, u.avatar, u.background, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?";
 
       connectDB.query(query, [email, password], (err, result) => {
         if (err) return res.status(500).json({ error: "Lỗi server" });
 
         if (result.length > 0) {
-          // Trả về thông tin user nếu đăng nhập thành công
+          // Trả về thông tin người dùng nếu đăng nhập thành công
           res.status(200).json(result[0]);
         } else {
           res.status(401).json({ error: "Sai tài khoản hoặc mật khẩu" });
@@ -89,7 +90,7 @@ class AuthController {
           res,
           400,
           false,
-          "Email and password are required"
+          "Email và mật khẩu là bắt buộc"
         );
       }
 
@@ -99,12 +100,12 @@ class AuthController {
       const needs2FA = await authService.process2FA(user, email, ip);
 
       if (needs2FA) {
-        return handleResponse(res, 202, true, "2FA required", {
+        return handleResponse(res, 202, true, "Xác thực 2 yếu tố được yêu cầu", {
           requires2FA: true,
         });
       }
       if (user.isActive === 0) {
-        return handleResponse(res, 202, true, "Account is not active", {
+        return handleResponse(res, 202, true, "Tài khoản chưa được kích hoạt", {
           active: true,
         });
       }
@@ -113,25 +114,31 @@ class AuthController {
         await updateInfoDevice(ip, email);
       }
 
-      const token = authService.generateToken(user.idUser);
-      console.log(user.fullName);
+      console.log("Thông tin người dùng sau khi đăng nhập:", {
+        idUser: user.idUser,
+        email: user.email,
+        fullName: user.fullName,
+        avatar: user.avatar,
+        background: user.background,
+      });
 
-      return handleResponse(res, 200, true, "Login successful", {
+      return handleResponse(res, 200, true, "Đăng nhập thành công", {
         user: {
           idUser: user.idUser,
           email: user.email,
           fullName: user.fullName,
           avatar: user.avatar,
+          background: user.background,
         },
       });
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("Lỗi đăng nhập:", error);
       const status = error.status || 500;
       return handleResponse(
         res,
         status,
         false,
-        error.message || "Internal server error"
+        error.message || "Lỗi máy chủ nội bộ"
       );
     }
   }
@@ -149,12 +156,12 @@ class AuthController {
         !month ||
         !year
       ) {
-        return handleResponse(res, 400, false, "All fields are required");
+        return handleResponse(res, 400, false, "Tất cả các trường đều bắt buộc");
       }
 
       const existingUser = await authService.findUserByEmail(email);
       if (existingUser) {
-        return handleResponse(res, 409, false, "Email already exists");
+        return handleResponse(res, 409, false, "Email đã tồn tại");
       }
 
       const birthDate = new Date(`${year}-${month}-${day}`);
@@ -168,12 +175,45 @@ class AuthController {
       const otp = await sendOTP(email);
       await updateOTPService(otp, email);
 
-      return handleResponse(res, 201, true, "User registered successfully", {
+      return handleResponse(res, 201, true, "Người dùng đã được đăng ký thành công", {
         userId,
       });
     } catch (error) {
-      console.error("Registration error:", error);
-      return handleResponse(res, 500, false, "Error creating account");
+      console.error("Lỗi đăng ký:", error);
+      return handleResponse(res, 500, false, "Lỗi tạo tài khoản");
+    }
+  }
+
+  static async verifyOTP(req, res) {
+    try {
+      const { email, otp } = req.body;
+
+      if (!email || !otp) {
+        return handleResponse(res, 400, false, "Email và mã OTP là bắt buộc");
+      }
+
+      const [rows] = await connectDB.query(
+        "SELECT otp FROM account WHERE email = ?",
+        [email]
+      );
+
+      if (rows.length === 0) {
+        return handleResponse(res, 404, false, "Không tìm thấy tài khoản");
+      }
+
+      if (rows[0].otp !== otp) {
+        return handleResponse(res, 400, false, "Mã OTP không hợp lệ");
+      }
+
+      await connectDB.query(
+        "UPDATE account SET isVerified = true, otp = NULL WHERE email = ?",
+        [email]
+      );
+
+      return handleResponse(res, 200, true, "Xác thực OTP thành công");
+    } catch (error) {
+      console.error("Lỗi xác thực OTP:", error);
+      return handleResponse(res, 500, false, "Lỗi xác thực OTP");
     }
   }
 }

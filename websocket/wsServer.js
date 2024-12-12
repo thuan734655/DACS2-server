@@ -1,24 +1,24 @@
+import db from "../config/firebaseConfig.js";
+import NotificationModel from "../models/notificationModel.js";
 import Post from "../models/postModel.js";
 import UserModel from "../models/userModel.js";
 import handleFileWebSocket from "../utils/handleFileWebSocket.js";
-import NotificationModel from "../models/notificationModel.js";
+import { createAndEmitNotification } from "../utils/notificationForm.js";
 
-const handleSocketEvents = (socket, io) => {
-  console.log("User connected:", socket.id);
-
+const handleSocketEvents = (socket, io, onlineUsers) => {
   socket.on("newPost", async ({ post }) => {
     console.log("Post creation started");
     try {
-      // Handle file uploads using existing utility
+      // Xử lý tệp tin nếu có
       let mediaUrls = [];
       if (post.listFileUrl && post.listFileUrl.length > 0) {
         mediaUrls = handleFileWebSocket(post.listFileUrl);
       }
 
-      // Get user info
+      // Lấy thông tin người dùng
       const [userInfo] = await UserModel.getInfoByIdUser(post.idUser);
 
-      // Create final post object
+      // Chuẩn bị dữ liệu bài đăng
       const postData = {
         text: post.text,
         idUser: post.idUser,
@@ -37,12 +37,13 @@ const handleSocketEvents = (socket, io) => {
         shares: 0,
         comments: [],
         createdAt: Date.now(),
+        privacy: post.privacy || "public", // Quyền riêng tư mặc định là "public"
       };
 
-      // Save post to database
+      // Lưu bài đăng vào cơ sở dữ liệu
       const postId = await Post.createPost(postData);
 
-      // Create response with user info
+      // Dữ liệu trả về
       const postResponse = {
         postId: postId,
         ...postData,
@@ -53,19 +54,77 @@ const handleSocketEvents = (socket, io) => {
         commentCount: 0,
       };
 
-      // Broadcast to all clients
-      io.emit("receiveNewPost", { post: postResponse });
-      console.log("New post broadcasted successfully");
+      // Lấy danh sách bạn bè
+      const friendsList = await UserModel.getFriendsList(post.idUser);
+
+      // Phát bài đăng dựa trên quyền riêng tư
+      if (postData.privacy === "public") {
+        io.emit("receiveNewPost", { post: postResponse });
+      } else if (postData.privacy === "friends") {
+        console.log(onlineUsers, "fdsf");
+        // Lặp qua danh sách bạn bè và gửi thông báo cho những người đang online
+        friendsList.forEach((idUser) => {
+          // Tìm socket.id của user dựa trên idUser trong onlineUsers
+          let targetSocketId = null;
+
+          // Duyệt qua các phần tử trong onlineUsers để tìm socketId tương ứng với idUser
+          onlineUsers.forEach((userId, socketId) => {
+            if (userId == idUser.idUser) {
+              targetSocketId = socketId;
+            }
+          });
+
+          // Kiểm tra nếu tìm thấy socket.id của user đó và gửi bài đăng
+          if (targetSocketId) {
+            io.to(targetSocketId).emit("receiveNewPost", {
+              post: postResponse,
+            });
+          } else {
+            console.log(`User ${idUser} is not online.`);
+          }
+        });
+      } else if (postData.privacy === "private") {
+        let targetSocketId = null;
+        onlineUsers.forEach((userId, socketId) => {
+          if (userId == post.idUser) {
+            targetSocketId = socketId;
+          }
+        });
+        if (targetSocketId) {
+          io.to(targetSocketId).emit("receiveNewPost", { post: postResponse });
+        }
+      }
+      console.log(`Post broadcasted with privacy: ${postData.privacy}`);
     } catch (error) {
       console.error("Error creating post:", error);
       socket.emit("postError", { message: "Failed to create post" });
     }
   });
+  socket.on(
+    "getPosts",
+    async (userId, fetchedPostIdsFromClient, limit, page) => {
+      try {
+        const results = await Post.getAllPosts(
+          userId,
+          fetchedPostIdsFromClient,
+          page,
+          limit
+        );
 
-  // In notificationHandler.js
+        socket.emit("receivePosts", {
+          posts: results.posts,
+          page: page,
+          hasMore: results.hasMore,
+        });
+      } catch (error) {
+        console.error("Error fetching posts:", error);
+        socket.emit("error", { message: "Error fetching posts" });
+      }
+    }
+  );
   socket.on("newComment", async (data) => {
     const { postId, idUser, text, listFileUrl, user } = data.comment;
-
+    const TYPE = "POST_COMMENT";
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
       const commentContainer = {
@@ -82,6 +141,28 @@ const handleSocketEvents = (socket, io) => {
         user: [user],
         ...commentContainer,
       };
+      //  Lấy thông tin bài viết gốc từ Firebase
+      const originalPost = await db.ref("posts").child(postId).once("value");
+      if (!originalPost.exists()) {
+        throw new Error("Post not found");
+      }
+
+      const postData = originalPost.val();
+      if (postData.idUser !== idUser) {
+        const userInfo = await UserModel.getInfoByIdUser(idUser);
+        const notificationData = {
+          type: TYPE,
+          commentId,
+          createdAt: Date.now(),
+          postId: postId,
+          read: false,
+          senderAvatar: userInfo[0][0].avatar || "",
+          senderName: userInfo[0][0].fullName || "",
+          senderId: idUser,
+          recipientId: postData.idUser,
+        };
+        await createAndEmitNotification(io, notificationData);
+      }
       io.emit("receiveComment", { newComment });
 
       // Get post info from Firebase instead of MySQL
@@ -108,9 +189,9 @@ const handleSocketEvents = (socket, io) => {
       socket.emit("error", { message: "Failed to add comment" });
     }
   });
-
   socket.on("replyComment", async ({ commentId, replyData }) => {
     const { postId, idUser, text, listFileUrl, user } = replyData;
+    const TYPE = "POST_REPLY_COMMENT";
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
 
@@ -123,6 +204,33 @@ const handleSocketEvents = (socket, io) => {
       };
       const replyId = await Post.replyToComment({ commentId, newReplyData });
 
+      //  Lấy thông tin bài viết gốc từ Firebase
+      const originalComment = await db
+        .ref("commentsList")
+        .child(commentId)
+        .once("value");
+      if (!originalComment.exists()) {
+        throw new Error("Post not found");
+      }
+      const commentData = originalComment.val();
+      if (commentData.idUser !== idUser) {
+        if (commentData.idUser !== idUser) {
+          const userInfo = await UserModel.getInfoByIdUser(idUser);
+          const notificationData = {
+            type: TYPE,
+            replyId,
+            commentId,
+            createdAt: Date.now(),
+            postId: postId,
+            read: false,
+            senderAvatar: userInfo[0][0].avatar || "",
+            senderName: userInfo[0][0].fullName || "",
+            senderId: idUser,
+            recipientId: commentData.idUser,
+          };
+          await createAndEmitNotification(io, notificationData);
+        }
+      }
       const newReply = {
         id: replyId,
         user: [user],
@@ -136,9 +244,9 @@ const handleSocketEvents = (socket, io) => {
       console.error("Lỗi khi thêm phản hồi:", error);
     }
   });
-
   socket.on("replyToReply", async ({ replyId, replyData }) => {
     const { postId, idUser, text, listFileUrl, user } = replyData;
+    const TYPE = "POST_REPLY_TO_REPLY";
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
       const newReplyData = {
@@ -151,6 +259,30 @@ const handleSocketEvents = (socket, io) => {
       };
 
       const replyKey = await Post.replyToReply({ replyId, newReplyData });
+      //  Lấy thông tin bài viết gốc từ Firebase
+      const originalComment = await db
+        .ref("replies")
+        .child(replyId)
+        .once("value");
+      if (!originalComment.exists()) {
+        throw new Error("Post not found");
+      }
+      const commentData = originalComment.val();
+
+      const userInfo = await UserModel.getInfoByIdUser(idUser);
+      const notificationData = {
+        type: TYPE,
+        replyId: replyKey,
+        parentReplyID: replyId,
+        createdAt: Date.now(),
+        postId: postId,
+        read: false,
+        senderAvatar: userInfo[0][0].avatar || "",
+        senderName: userInfo[0][0].fullName || "",
+        senderId: idUser,
+        recipientId: commentData.idUser,
+      };
+      await createAndEmitNotification(io, notificationData);
 
       const newReply = {
         replyId: replyKey,
@@ -172,6 +304,7 @@ const handleSocketEvents = (socket, io) => {
 
   socket.on("newReaction", async ({ postId, emoji, idUser }) => {
     try {
+      const TYPE = "POST_REACTION";
       const updatedLikes = await Post.likePost(postId, emoji, idUser);
       if (updatedLikes === "duplicate") {
         await Post.deleteLike(idUser, postId, emoji);
@@ -218,7 +351,28 @@ const handleSocketEvents = (socket, io) => {
           groupedLikes[userEmoji].push(userId);
         });
       }
+      //  Lấy thông tin bài viết gốc từ Firebase
+      const originalPost = await db.ref("posts").child(postId).once("value");
+      if (!originalPost.exists()) {
+        throw new Error("Post not found");
+      }
+      const postData = originalPost.val();
 
+      const userInfo = await UserModel.getInfoByIdUser(idUser);
+      if (idUser !== postData.idUser) {
+        const notificationData = {
+          type: TYPE,
+          content: `${emoji}`,
+          createdAt: Date.now(),
+          postId: postId,
+          read: false,
+          senderAvatar: userInfo[0][0].avatar || "",
+          senderName: userInfo[0][0].fullName || "",
+          senderId: idUser,
+          recipientId: postData.idUser,
+        };
+        await createAndEmitNotification(io, notificationData);
+      }
       io.emit("receiveReaction", { postId, groupedLikes });
 
       socket.emit("reactionSuccess", { postId, emoji, updatedLikes });
@@ -240,72 +394,69 @@ const handleSocketEvents = (socket, io) => {
     console.log("Danh sách bình luận đã được gửi đi:", comments);
   });
 
-  // Share post event
+  socket.on("getPostById", async ({ postId }) => {
+    if (postId) {
+      const postData = await Post.getPostById(postId);
+
+      socket.emit("res_getPostById", postData);
+    } else {
+      console.log("postId invalid");
+    }
+  });
+
   socket.on("sharePost", async ({ postId, idUser, shareText }) => {
     try {
-      const post = await Post.getPostById(postId);
-      const [userInfo] = await UserModel.getInfoByIdUser(idUser);
+      const TYPE = "POST_SHARE";
+      const result = await Post.sharePost(postId, idUser, shareText);
 
-      if (!post) {
-        socket.emit("postShared", { postId, error: "Bài viết không tồn tại" });
-        return;
+      //  Lấy thông tin bài viết gốc từ Firebase
+      const originalPost = await db.ref("posts").child(postId).once("value");
+      if (!originalPost.exists()) {
+        throw new Error("Post not found");
       }
-
-      if (!userInfo || !userInfo[0].fullName) {
-        socket.emit("postShared", { postId, error: "Thông tin người dùng không hợp lệ" });
-        return;
-      }
-
-      // Create share record
-      const shareResult = await Post.sharePost(postId, idUser, shareText);
-
-      // Get updated share count
-      const updatedPost = await Post.getPostById(postId);
-      const shareCount = updatedPost.shares || 0;
-
-      // Broadcast share count update to all clients
-      io.emit("postShared", {
-        postId,
-        shareCount,
-        error: null
-      });
-
-      // Only create notification if sharing someone else's post
-      if (post.idUser !== idUser) {
+      const postData = originalPost.val();
+      if (postData.idUser !== idUser) {
+        const userInfo = await UserModel.getInfoByIdUser(idUser);
         const notificationData = {
-          postId,
-          postTitle: post.title || "",
-          postImage: post.image_url || "",
-          shareText: shareText || "",
-          userName: userInfo[0].fullName,
-          userAvatar: userInfo[0].avatar || "",
-        };
-
-        const notification = await NotificationModel.createNotification({
-          type: "share",
-          data: notificationData,
+          senderAvatar: userInfo[0][0].avatar || "",
+          senderName: userInfo[0][0].fullName || "",
           senderId: idUser,
-          recipientId: post.idUser,
-          relatedId: postId
-        });
-
-        // Send notification to post owner
-        io.to(`user_${post.idUser}`).emit("newNotification", notification);
+          shareText: shareText,
+          recipientId: postData.idUser,
+          type: TYPE,
+          createdAt: Date.now(),
+          postId: postId,
+          read: false,
+        };
+        await createAndEmitNotification(io, notificationData);
       }
-
-      // Send success response to sharer
-      socket.emit("sharePostSuccess", {
+      io.emit("postShared", {
+        senderId: idUser,
         postId,
-        shareId: shareResult.id,
-        shareCount
+        shareCount: postData.shares || 0,
+        sharedPostId: result.sharedPostId,
+        success: true,
       });
-
     } catch (error) {
-      console.error("Error handling share post:", error);
+      console.error("[ERROR] Lỗi khi chia sẻ bài viết:", error);
+
+      // Gửi thông báo lỗi cho client
       socket.emit("postShared", {
         postId,
-        error: "Không thể chia sẻ bài viết. Vui lòng thử lại sau."
+        success: false,
+        error: error.message,
       });
+    }
+  });
+
+  // Sự kiện đánh dấu thông báo đã đọc
+  socket.on("markNotificationRead", async (notificationId) => {
+    try {
+      // Cập nhật trạng thái đã đọc trong cơ sở dữ liệu (có thể sử dụng Firebase hoặc MySQL)
+      await Post.updateNotificationStatus(notificationId, { read: true });
+      io.emit("notificationRead", { notificationId });
+    } catch (error) {
+      console.error("Lỗi khi đánh dấu thông báo đã đọc:", error);
     }
   });
 
@@ -329,109 +480,80 @@ const handleSocketEvents = (socket, io) => {
       });
     }
   });
-
-  // Notification Events
-  socket.on("getNotifications", async ({ idUser }) => {
-    if (!idUser) {
-      console.error("No idUser provided in getNotifications event");
-      socket.emit("notificationsList", []);
-      return;
-    }
-
+  // Xử lý đánh dấu notification đã đọc
+  socket.on("markNotificationAsRead", async ({ notificationId, userId }) => {
     try {
-      const notifications = await NotificationModel.getNotifications(idUser);
-      console.log("Fetched notifications:", notifications);
-      socket.emit("notificationsList", notifications || []);
-    } catch (error) {
-      console.error("Error fetching notifications:", error);
-      socket.emit("notificationsList", []);
-    }
-  });
-
-  socket.on("markNotificationRead", async ({ notificationId, idUser }) => {
-    if (!notificationId || !idUser) {
-      console.error(
-        "Missing notificationId or idUser in markNotificationRead event"
+      const notificationRef = db.ref(`notifications/${notificationId}`);
+      await notificationRef.update({ read: true });
+      console.log(
+        `Marked notification ${notificationId} as read for user ${userId}`
       );
-      return;
-    }
-
-    try {
-      await NotificationModel.markAsRead(notificationId);
-      const notifications = await NotificationModel.getNotifications(idUser);
-      socket.emit("notificationsList", notifications || []);
     } catch (error) {
       console.error("Error marking notification as read:", error);
+      socket.emit("error", { message: "Failed to mark notification as read" });
     }
   });
 
-  socket.on("markAllNotificationsRead", async ({ idUser }) => {
+  // Xử lý đánh dấu tất cả notifications đã đọc
+  socket.on("markAllNotificationsAsRead", async ({ userId }) => {
     try {
-      await NotificationModel.markAllAsRead(idUser);
-      const notifications = await NotificationModel.getNotifications(idUser);
-      socket.emit("notificationsList", notifications);
+      const userNotificationsRef = db
+        .ref("notifications")
+        .orderByChild("recipientId")
+        .equalTo(userId);
+
+      const snapshot = await userNotificationsRef.once("value");
+      const updates = {};
+
+      snapshot.forEach((child) => {
+        if (!child.val().read) {
+          updates[`notifications/${child.key}/read`] = true;
+        }
+      });
+
+      if (Object.keys(updates).length > 0) {
+        await db.ref().update(updates);
+        console.log(`Marked all notifications as read for user ${userId}`);
+      }
     } catch (error) {
       console.error("Error marking all notifications as read:", error);
+      socket.emit("error", {
+        message: "Failed to mark all notifications as read",
+      });
     }
   });
-
-  socket.on("deleteNotification", async ({ notificationId, idUser }) => {
+  // Lắng nghe sự kiện lấy danh sách thông báo
+  socket.on("getNotifications", async ({ idUser, limit = 20 }) => {
     try {
-      await NotificationModel.deleteNotification(notificationId);
-      const notifications = await NotificationModel.getNotifications(idUser);
-      socket.emit("notificationsList", notifications);
+      // Gọi hàm getNotifications từ model để lấy danh sách thông báo
+      const notifications = await NotificationModel.getNotifications(
+        idUser,
+        limit
+      );
+
+      // Gửi danh sách thông báo cho client
+      socket.emit("notifications", { notifications });
+    } catch (error) {
+      console.error("[ERROR] Lỗi khi lấy thông báo:", error);
+      socket.emit("error", { message: "Lỗi khi lấy thông báo" });
+    }
+  });
+  socket.on("getNotificationNoRead", async () => {});
+  socket.on("deteleNotificaiton", async ({ idNotification }) => {
+    try {
+      console.log(idNotification);
+      await NotificationModel.deleteNotification(idNotification);
+      console.log(`Deleted notification ${idNotification}`);
     } catch (error) {
       console.error("Error deleting notification:", error);
+      socket.emit("errorDeleteNotification", {
+        message: "Failed to delete notification",
+      });
     }
   });
-
-  socket.on("deleteAllNotifications", async ({ idUser }) => {
-    try {
-      await NotificationModel.deleteAllNotifications(idUser);
-      socket.emit("notificationsList", []);
-    } catch (error) {
-      console.error("Error deleting all notifications:", error);
-    }
-  });
-
-  // Thêm event để join room cho notifications
-  socket.on("joinNotificationRoom", ({ idUser }) => {
-    console.log(`User ${idUser} joining notification room`);
-    socket.join(`user_${idUser}`);
-  });
-
-  // Get related content for notification
-  socket.on(
-    "getRelatedContent",
-    async ({ idUser, notificationId, type, postId }) => {
-      try {
-        let content = null;
-
-        if (type === "like" || type === "comment" || type === "share") {
-          content = await Post.getPostById(postId);
-        }
-
-        // Mark notification as read when getting related content
-        await NotificationModel.markAsRead(notificationId);
-
-        // Emit the related content back to the client
-        socket.emit("relatedContent", content);
-
-        // Notify about read status update
-        io.to(`user_${idUser}`).emit("notificationUpdated", {
-          id: notificationId,
-          read: true,
-          readAt: Date.now(),
-        });
-      } catch (error) {
-        console.error("Error getting related content:", error);
-        socket.emit("error", { message: "Failed to get related content" });
-      }
-    }
-  );
-
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
+    onlineUsers.delete(socket.id);
   });
 };
 

@@ -66,43 +66,6 @@ const handleNotificationEvents = (socket, io) => {
     }
   });
 
-  // Xử lý đánh dấu notification đã đọc
-  socket.on('markNotificationAsRead', async ({ notificationId, userId }) => {
-    try {
-      const notificationRef = db.ref(`notifications/${notificationId}`);
-      await notificationRef.update({ read: true });
-      console.log(`Marked notification ${notificationId} as read for user ${userId}`);
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-      socket.emit('error', { message: 'Failed to mark notification as read' });
-    }
-  });
-
-  // Xử lý đánh dấu tất cả notifications đã đọc
-  socket.on('markAllNotificationsAsRead', async ({ userId }) => {
-    try {
-      const userNotificationsRef = db.ref('notifications')
-        .orderByChild('recipientId')
-        .equalTo(userId);
-      
-      const snapshot = await userNotificationsRef.once('value');
-      const updates = {};
-      
-      snapshot.forEach(child => {
-        if (!child.val().read) {
-          updates[`notifications/${child.key}/read`] = true;
-        }
-      });
-
-      if (Object.keys(updates).length > 0) {
-        await db.ref().update(updates);
-        console.log(`Marked all notifications as read for user ${userId}`);
-      }
-    } catch (error) {
-      console.error('Error marking all notifications as read:', error);
-      socket.emit('error', { message: 'Failed to mark all notifications as read' });
-    }
-  });
 
   // Xử lý khi user đăng xuất hoặc rời room
   socket.on('leaveNotificationRoom', () => {
