@@ -141,8 +141,8 @@ class UserController {
     }
   }
   static async respondToFriendRequest(req, res) {
-    const receiver_id = req.params.userId; // ID người nhận lời mời (người đang đăng nhập)
-    const { requester_id, accept } = req.body; // ID người gửi lời mời và quyết định chấp nhận/từ chối
+    const receiver_id = req.params.userId;
+    const { requester_id, accept } = req.body; 
 
     console.log("Xử lý phản hồi lời mời kết bạn:", {
       receiver_id,

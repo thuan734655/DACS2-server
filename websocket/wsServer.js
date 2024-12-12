@@ -84,7 +84,6 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
           } else {
             console.log(`User ${idUser} is not online.`);
           }
-         
         });
       } else if (postData.privacy === "private") {
         let targetSocketId = null;
@@ -115,6 +114,28 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
         );
 
         socket.emit("receivePosts", {
+          posts: results.posts,
+          page: page,
+          hasMore: results.hasMore,
+        });
+      } catch (error) {
+        console.error("Error fetching posts:", error);
+        socket.emit("error", { message: "Error fetching posts" });
+      }
+    }
+  );
+  socket.on(
+    "getPostOfUser",
+    async (userId, fetchedPostIdsFromClient, limit, page) => {
+      try {
+        const results = await Post.getAllPosts(
+          userId,
+          fetchedPostIdsFromClient,
+          page,
+          limit
+        );
+
+        socket.emit("receivePostsAndSharePostOfUser", {
           posts: results.posts,
           page: page,
           hasMore: results.hasMore,

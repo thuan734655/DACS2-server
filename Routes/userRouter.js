@@ -11,4 +11,4 @@ router.post('/users/:userId/respond-friend-request', UserController.respondToFri
 router.get('/users/:userId/friends/count', UserController.getFriendCount);
 router.get('/users/search-by-name', UserController.searchUsersByName);
 router.get('/users/:userId/friends', UserController.getFriendsList);
-export default router;
+export default router;  
