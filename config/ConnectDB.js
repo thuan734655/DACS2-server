@@ -1,15 +1,15 @@
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
 
-dotenv.config(); // Load các biến môi trường từ file .env
+dotenv.config();
+const uri =
+  process.env.DB_URI ||
+  "mysql://uibhubsgfu8zpu6y:EkiBxp1yjheHClDVhTQM@beeelnlvykq1ywgjbzbs-mysql.services.clever-cloud.com:3306/beeelnlvykq1ywgjbzbs";
 
 const connectDB = mysql.createPool({
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "dacs2",
+  uri,
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: 5,
   queueLimit: 0,
 });
 
