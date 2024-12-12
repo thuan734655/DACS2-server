@@ -7,8 +7,12 @@ class ReportModel {
       const reportKey = reportRef.push().key;
 
       const newReport = {
-        id: reportKey,
-        content,
+        idReport: reportKey,
+        postId: content.postId || "",
+        commentId: content.commentId || "",
+        replyId: content.replyId || "",
+        reason: content.reason || "",
+        type: content.type || "",
         createdAt: new Date().toISOString(),
       };
 

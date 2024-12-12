@@ -505,8 +505,10 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
 
     if (content.type === "POST") {
       socket.emit("responseReportPost", result);
-    } else {
+    } else if (content.type === "COMMENT") {
       socket.emit("responseReportComment", result);
+    } else {
+      socket.emit("responseReportReply", result);
     }
   });
 
