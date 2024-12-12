@@ -1,5 +1,13 @@
 import admin from "firebase-admin";
 import fs from "fs";
+import "firebase/auth";
+import "firebase/database";
+import "firebase/firestore";
+import "firebase/storage";
+import "firebase/messaging";
+const serviceAccount = JSON.parse(
+  fs.readFileSync("./config/dacs-3847d-firebase-adminsdk-7b7t1-3c9059e176.json")
+);
 
 // Đường dẫn đến tệp cấu hình Firebase Admin SDK
 const serviceAccountPath =

@@ -84,7 +84,6 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
           } else {
             console.log(`User ${idUser} is not online.`);
           }
-         
         });
       } else if (postData.privacy === "private") {
         let targetSocketId = null;
@@ -502,8 +501,8 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
     }
   });
   socket.on("report", async (content) => {
+    console.log(content);
     const result = await ReportModel.createReportPost(content);
-
     if (content.type === "POST") {
       socket.emit("responseReportPost", result);
     } else if (content.type === "COMMENT") {

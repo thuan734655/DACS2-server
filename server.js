@@ -65,22 +65,6 @@ io.on("connection", (socket) => {
     console.log(onlineUsers, ">>>?");
   }
 
-  // Khi user kết nối và đăng nhập
-  socket.on("userConnected", (userId) => {
-    console.log(`User ${userId} đã kết nối với ] ID ${socket.id}`);
-    // Lưu socket.id và userId
-    socket.userId = userId;
-    onlineUsers.set(socket.id, userId);
-    console.log(onlineUsers, ">>>?");
-    // Gửi danh sách users online cho tất cả clients
-    const onlineList = getAllOnlineUsers();
-    console.log("Gửi danh sách online cho clients:", onlineList);
-    io.emit("getOnlineUsers", onlineList);
-
-    // Thông báo user mới online
-    socket.broadcast.emit("userConnected", userId);
-  });
-
   // Thông báo khi user ngắt kết nối
   socket.on("disconnect", () => {
     if (socket.userId) {
@@ -93,12 +77,6 @@ io.on("connection", (socket) => {
       );
       socket.broadcast.emit("userDisconnected", socket.userId);
     }
-  });
-
-  // Handle authentication event
-  socket.on("authenticate", (userId) => {
-    console.log(`User ${userId} đã được xác thực`);
-    // Xử lý logic xác thực ở đây nếu cần (ví dụ: kiểm tra userId trong cơ sở dữ liệu)
   });
 
   handleSocketEvents(socket, io, onlineUsers);
