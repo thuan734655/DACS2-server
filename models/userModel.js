@@ -203,7 +203,7 @@ class UserModel {
   }
   static async getFriendsList(userId) {
     const sql = `
-      SELECT u.idUser, u.fullName, u.avatar
+      SELECT u.idUser, u.fullName, u.avatar, u.background
       FROM friends f
       JOIN user u ON f.idFriend = u.idUser
       WHERE f.idUser = ?
