@@ -41,7 +41,7 @@ const io = new Server(server, {
   },
   maxHttpBufferSize: 10 * 1024 * 1024, // Max buffer size for large payloads
 });
-
+app.set('io', io);
 // Map to track users by socket ID
 const onlineUsers = new Map();
 

@@ -127,7 +127,6 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
     const TYPE = "POST_COMMENT";
     try {
       const fileUrls = handleFileWebSocket(listFileUrl);
-
       const commentContainer = {
         postId,
         idUser,
@@ -165,9 +164,29 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
         await createAndEmitNotification(io, notificationData);
       }
       io.emit("receiveComment", { newComment });
-      console.log("Bình luận đã được thêm và gửi đi:", newComment);
+
+      // Get post info from Firebase instead of MySQL
+      const postSnapshot = await db.ref(`posts/${postId}`).once("value");
+      const post = postSnapshot.val();
+
+      if (post && post.idUser !== idUser) {
+        await createNotification(
+          "comment",
+          {
+            userId: idUser,
+            userName: user.name,
+            userAvatar: user.avatar,
+            postId,
+            commentId,
+            text,
+          },
+          post.idUser
+        );
+        io.to(`user_${post.idUser}`).emit("newNotification");
+      }
     } catch (error) {
-      console.error("Lỗi khi thêm bình luận:", error);
+      console.error("Error handling comment:", error);
+      socket.emit("error", { message: "Failed to add comment" });
     }
   });
   socket.on("replyComment", async ({ commentId, replyData }) => {
@@ -289,7 +308,38 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
       const updatedLikes = await Post.likePost(postId, emoji, idUser);
       if (updatedLikes === "duplicate") {
         await Post.deleteLike(idUser, postId, emoji);
-        console.log(`Đã xóa like của người dùng: ${idUser}`);
+      } else {
+        const post = await Post.getPostById(postId);
+        const [userInfo] = await UserModel.getInfoByIdUser(idUser);
+        if (!userInfo || !userInfo[0].fullName) {
+          throw new Error("Invalid user info");
+        }
+
+        if (post && post.idUser !== idUser) {
+          try {
+            const notificationData = {
+              postId,
+              userId: idUser,
+              userName: userInfo[0].fullName,
+              userAvatar: userInfo[0].avatar || "",
+              emoji,
+            };
+            const notification = await NotificationModel.createNotification({
+              type: emoji,
+              data: notificationData,
+              recipientId: post.idUser,
+            });
+
+            io.to(`user_${post.idUser}`).emit("newNotification", notification);
+          } catch (notifError) {
+            throw notifError;
+          }
+        } else {
+          if (!post)
+            console.log("[DEBUG] Line 214 - wsServer.js - Post not found");
+          if (post.idUser === idUser)
+            console.log("[DEBUG] Line 215 - wsServer.js - Same user");
+        }
       }
 
       const listLikes = await Post.getLikes(postId);
@@ -327,7 +377,10 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
 
       socket.emit("reactionSuccess", { postId, emoji, updatedLikes });
     } catch (error) {
-      console.error("Lỗi trong quá trình xử lý cảm xúc:", error);
+      console.error(
+        "[DEBUG] Line 221 - wsServer.js - Main error in newReaction:",
+        error
+      );
       socket.emit("reactionError", {
         message: "Không thể cập nhật lượt thích. Vui lòng thử lại.",
       });
