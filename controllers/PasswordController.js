@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import connectDB from "../config/ConnectDB.js";
 import sendOTP from "../models/sendOTPModel.js";
 import updateOTPService from "../models/updateOTPServiceModel.js";
