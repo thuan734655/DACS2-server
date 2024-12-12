@@ -1,4 +1,6 @@
 import db from '../config/firebaseConfig.js';
+
+
 import NotificationModel from '../models/notificationModel.js';
 
 const handleNotificationEvents = (socket, io) => {
