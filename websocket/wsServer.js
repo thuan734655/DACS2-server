@@ -1,6 +1,8 @@
 import db from "../config/firebaseConfig.js";
 import NotificationModel from "../models/notificationModel.js";
 import Post from "../models/postModel.js";
+import ReportModel from "../models/reportModel.js";
+import ReportMode from "../models/reportModel.js";
 import UserModel from "../models/userModel.js";
 import handleFileWebSocket from "../utils/handleFileWebSocket.js";
 import { createAndEmitNotification } from "../utils/notificationForm.js";
@@ -498,6 +500,16 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
       });
     }
   });
+  socket.on("report", async (content) => {
+    const result = await ReportModel.createReportPost(content);
+
+    if (content.type === "POST") {
+      socket.emit("responseReportPost", result);
+    } else {
+      socket.emit("responseReportComment", result);
+    }
+  });
+
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
     onlineUsers.delete(socket.id);
