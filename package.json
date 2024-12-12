@@ -35,7 +35,7 @@
   "license": "ISC",
   "type": "module",
   "engines": {
-  "node": "v20.18.1"  
+  "node": "v20.9.0"  
 }
 
 }
