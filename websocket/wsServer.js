@@ -71,7 +71,7 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
 
           // Duyệt qua các phần tử trong onlineUsers để tìm socketId tương ứng với idUser
           onlineUsers.forEach((userId, socketId) => {
-            if (userId == idUser.idUser) {
+            if (userId == idUser.idUser || userId == post.idUser) {
               targetSocketId = socketId;
             }
           });
@@ -84,6 +84,7 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
           } else {
             console.log(`User ${idUser} is not online.`);
           }
+         
         });
       } else if (postData.privacy === "private") {
         let targetSocketId = null;
