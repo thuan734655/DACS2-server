@@ -33,5 +33,8 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module"
+  "type": "module",
+  "engines": {
+    "node": "v20.9.0"  
+  }
 }
