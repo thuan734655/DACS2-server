@@ -4,11 +4,12 @@ import sendOTP from "../models/sendOTPModel.js";
 import updateOTPService from "../models/updateOTPServiceModel.js";
 import updateInfoDevice from "../models/updateInfoDeviceModel.js";
 import { handleResponse } from "../utils/createResponse.js";
+import { auth } from "../config/firebaseConfig.js";
 
 class PasswordController {
   static async forgotten(req, res) {
     const { email } = req.body;
-
+    console.log(email, "quen mat khau");
     if (!email) {
       return handleResponse(res, 400, "fail", "Email is required.");
     }
@@ -86,26 +87,33 @@ class PasswordController {
       return handleResponse(
         res,
         400,
-        "fail",
-        "Email and new password are required."
+        false,
+        "Email and new password are required"
       );
     }
 
     try {
+      // Hash mật khẩu mới
       const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Cập nhật mật khẩu trong MySQL
       await connectDB.query("UPDATE account SET password = ? WHERE email = ?", [
         hashedPassword,
         email,
       ]);
-      return handleResponse(
-        res,
-        200,
-        "success",
-        "Password changed successfully."
-      );
+
+      // Cập nhật mật khẩu trong Firebase Authentication
+      const userRecord = await auth.getUserByEmail(email);
+      if (!userRecord) {
+        return handleResponse(res, 404, false, "Người dùng không tồn tại");
+      }
+
+      await auth.updateUser(userRecord.uid, { password: newPassword });
+
+      return handleResponse(res, 200, true, "Đã đổi mật khẩu thành công!!");
     } catch (error) {
-      console.error("Database error:", error);
-      return handleResponse(res, 500, "error", "Internal server error.");
+      console.error("Error changing password:", error);
+      return handleResponse(res, 500, false, "Failed to change password");
     }
   }
 }
