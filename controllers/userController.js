@@ -4,6 +4,7 @@ import { createAndEmitNotification } from "../utils/notificationForm.js";
 
 class UserController {
   static async getInfoByIdUser(req, res) {
+    console.log("getInfoByIdUser");
     const { idUser } = req.body;
 
     if (!idUser) {
@@ -161,7 +162,12 @@ class UserController {
 
     try {
       const io = req.app.get("io"); // Lấy IO server từ app
-      await UserModel.respondToFriendRequest(receiver_id, requester_id, accept,io);
+      await UserModel.respondToFriendRequest(
+        receiver_id,
+        requester_id,
+        accept,
+        io
+      );
       return handleResponse(
         res,
         200,

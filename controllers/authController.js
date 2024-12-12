@@ -1,4 +1,4 @@
-import bcrypt from "bcryptjs";
+import bcrypt from "bcryptjs"; // Sử dụng bcryptjs
 import jwt from "jsonwebtoken";
 import connectDB from "../config/ConnectDB.js";
 import sendOTP from "../models/sendOTPModel.js";
@@ -12,45 +12,49 @@ dotenv.config();
 const SECRET_KEY = process.env.JWT_SECRET || "key";
 
 const authService = {
+  // Tìm người dùng theo email
   async findUserByEmail(email) {
     const [rows] = await connectDB.query(
-      "SELECT u.idUser, u.fullName, u.avatar,infoDevice, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?",
+      "SELECT u.idUser, u.fullName, u.avatar, infoDevice, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?",
       [email]
     );
     return rows[0];
   },
 
+  // Kiểm tra email và mật khẩu của người dùng
   async validateCredentials(email, password) {
     const user = await this.findUserByEmail(email);
     if (!user) throw { status: 404, message: "User not found" };
+
+    // Sử dụng bcryptjs để so sánh mật khẩu
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) throw { status: 401, message: "Invalid credentials" };
 
     return user;
   },
 
+  // Kiểm tra 2FA nếu cần
   async process2FA(user, email, ip) {
-    console.log(user.infoDevice && ip != user.infoDevice, "check 2FA");
-    console.log(ip, user.infoDevice, "heh>>???fsd", user);
     if (user.infoDevice && ip !== user.infoDevice) {
       const otp = await sendOTP(email);
       await updateOTPService(otp, email);
       return true;
     }
-
     return false;
   },
 
+  // Tạo token JWT cho người dùng
   generateToken(userId) {
     return jwt.sign({ id: userId }, SECRET_KEY, { expiresIn: "1h" });
   },
 
+  // Tạo người dùng mới
   async createUser(userData) {
     const { email, password, fullName, gender, birthDate } = userData;
     const connection = await connectDB.getConnection();
     try {
       await connection.beginTransaction();
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await bcrypt.hash(password, 10); // Mã hóa mật khẩu bằng bcryptjs
       const [accountResult] = await connection.query(
         "INSERT INTO account (email, password) VALUES (?, ?)",
         [email, hashedPassword]
@@ -71,45 +75,22 @@ const authService = {
 };
 
 class AuthController {
+  // Đăng nhập
   static async login(req, res) {
     try {
       const { email, password, ip } = req.body;
-      const query =
-        "SELECT u.idUser, u.fullName, u.avatar, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?";
-
-      connectDB.query(query, [email, password], (err, result) => {
-        if (err) return res.status(500).json({ error: "Lỗi server" });
-
-        if (result.length > 0) {
-          // Trả về thông tin user nếu đăng nhập thành công
-          res.status(200).json(result[0]);
-        } else {
-          res.status(401).json({ error: "Sai tài khoản hoặc mật khẩu" });
-        }
-      });
-
-      if (!email || !password) {
-        return handleResponse(
-          res,
-          400,
-          false,
-          "Email and password are required"
-        );
-      }
 
       const user = await authService.validateCredentials(email, password);
-      console.log(user);
-
       const needs2FA = await authService.process2FA(user, email, ip);
 
       if (needs2FA) {
-        console.log("2FA ok");
-        return handleResponse(res, 202, true, "2FA required", {
+        return handleResponse(res, 202, true, "Yêu cầu 2FA", {
           requires2FA: true,
         });
       }
+
       if (user.isActive === 0) {
-        return handleResponse(res, 202, true, "Account is not active", {
+        return handleResponse(res, 202, true, "Tài khoản không hoạt động", {
           active: true,
         });
       }
@@ -119,28 +100,23 @@ class AuthController {
       }
 
       const token = authService.generateToken(user.idUser);
-      console.log(user.fullName);
 
-      return handleResponse(res, 200, true, "Login successful", {
+      return handleResponse(res, 200, true, "Đăng nhập thành công", {
         user: {
           idUser: user.idUser,
           email: user.email,
           fullName: user.fullName,
           avatar: user.avatar,
         },
+        token,
       });
     } catch (error) {
-      console.error("Login error:", error);
       const status = error.status || 500;
-      return handleResponse(
-        res,
-        status,
-        false,
-        error.message || "Internal server error"
-      );
+      return handleResponse(res, status, false, error.message || "Lỗi server");
     }
   }
 
+  // Đăng ký người dùng
   static async register(req, res) {
     try {
       const { email, password, day, month, year, fullName, gender } = req.body;
@@ -154,12 +130,12 @@ class AuthController {
         !month ||
         !year
       ) {
-        return handleResponse(res, 400, false, "All fields are required");
+        return handleResponse(res, 400, false, "Tất cả các trường là bắt buộc");
       }
 
       const existingUser = await authService.findUserByEmail(email);
       if (existingUser) {
-        return handleResponse(res, 409, false, "Email already exists");
+        return handleResponse(res, 409, false, "Email đã tồn tại");
       }
 
       const birthDate = new Date(`${year}-${month}-${day}`);
@@ -173,12 +149,15 @@ class AuthController {
       const otp = await sendOTP(email);
       await updateOTPService(otp, email);
 
-      return handleResponse(res, 201, true, "User registered successfully", {
-        userId,
-      });
+      return handleResponse(
+        res,
+        201,
+        true,
+        "Người dùng đã đăng ký thành công",
+        { userId }
+      );
     } catch (error) {
-      console.error("Registration error:", error);
-      return handleResponse(res, 500, false, "Error creating account");
+      return handleResponse(res, 500, false, "Lỗi khi tạo tài khoản");
     }
   }
 }
