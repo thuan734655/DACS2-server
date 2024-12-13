@@ -3,7 +3,8 @@ import { createAndEmitNotification } from "../utils/notificationForm.js";
 
 class UserModel {
   static async getInfoByIdUser(idUser) {
-    const sql = "SELECT  `fullName`,  `avatar`, `background` FROM `user` WHERE idUser = ?";
+    const sql =
+      "SELECT  `fullName`,  `avatar`, `background` FROM `user` WHERE idUser = ?";
     const result = await connectDB.query(sql, [idUser]);
     return result;
   }
@@ -89,9 +90,8 @@ class UserModel {
     return result;
   }
   static async respondToFriendRequest(receiver_id, requester_id, accept, io) {
-    const conn = await connectDB.getConnection();
     try {
-      await conn.beginTransaction();
+      await connectDB.beginTransaction();
       console.log(
         `Xử lý phản hồi lời mời kết bạn - receiver_id: ${receiver_id}, requester_id: ${requester_id}, accept: ${accept}`
       );
@@ -101,7 +101,7 @@ class UserModel {
         SELECT * FROM friend_requests 
         WHERE requester_id = ? AND receiver_id = ? AND status = 'pending'
       `;
-      const [checkResult] = await conn.query(checkSql, [
+      const [checkResult] = await connectDB.query(checkSql, [
         requester_id,
         receiver_id,
       ]);
@@ -115,7 +115,7 @@ class UserModel {
         // Từ chối lời mời kết bạn
         const deleteRequestSql =
           "DELETE FROM friend_requests WHERE requester_id = ? AND receiver_id = ?";
-        await conn.query(deleteRequestSql, [requester_id, receiver_id]);
+        await connectDB.query(deleteRequestSql, [requester_id, receiver_id]);
 
         // Tạo thông báo từ chối
         const [requester] = await UserModel.getInfoByIdUser(requester_id);
@@ -128,7 +128,7 @@ class UserModel {
           createdAt: new Date(),
         };
         createAndEmitNotification(io, notificationData);
-        await conn.commit();
+        await connectDB.commit();
         return true;
       } else {
         // Chấp nhận lời mời kết bạn
@@ -137,7 +137,7 @@ class UserModel {
        SET status = 'accepted' 
        WHERE requester_id = ? AND receiver_id = ? AND status = 'pending'
      `;
-        await conn.query(updateSql, [requester_id, receiver_id]);
+        await connectDB.query(updateSql, [requester_id, receiver_id]);
 
         // Kiểm tra xem đã là bạn bè chưa
         const checkFriendSql = `
@@ -145,7 +145,7 @@ class UserModel {
        WHERE (idUser = ? AND idFriend = ?) 
        OR (idUser = ? AND idFriend = ?)
      `;
-        const [existingFriend] = await conn.query(checkFriendSql, [
+        const [existingFriend] = await connectDB.query(checkFriendSql, [
           receiver_id,
           requester_id,
           requester_id,
@@ -158,7 +158,7 @@ class UserModel {
          INSERT INTO friends (idUser, idFriend) 
          VALUES (?, ?), (?, ?)
        `;
-          await conn.query(addFriendsSql, [
+          await connectDB.query(addFriendsSql, [
             receiver_id,
             requester_id,
             requester_id,
@@ -181,12 +181,12 @@ class UserModel {
           console.log("Đã là bạn bè từ trước");
         }
 
-        await conn.commit();
+        await connectDB.commit();
         console.log("Đã hoàn tất xử lý lời mời kết bạn");
         return true;
       }
     } catch (error) {
-      await conn.rollback();
+      await connectDB.rollback();
       console.error("Lỗi trong quá trình xử lý lời mời kết bạn:", {
         error: error.message,
         receiver_id,
@@ -195,7 +195,7 @@ class UserModel {
       });
       throw error;
     } finally {
-      conn.release();
+      connectDB.release();
     }
   }
 
@@ -282,36 +282,37 @@ class UserModel {
         FROM user 
         WHERE idUser = ?`;
       const [result] = await connectDB.query(sql, [userId]);
-      return result[0] || {
-        introduction: '',
-        education: '',
-        location: ''
-      };
+      return (
+        result[0] || {
+          introduction: "",
+          education: "",
+          location: "",
+        }
+      );
     } catch (error) {
-      console.error('Error getting user info:', error);
+      console.error("Error getting user info:", error);
       throw error;
     }
   }
-  
+
   static async updateUserInfo(userId, info) {
-    const conn = await connectDB.getConnection();
     try {
-      await conn.beginTransaction();
-  
+      await connectDB.beginTransaction();
+
       const checkSql = "SELECT idUser FROM user WHERE idUser = ?";
-      const [user] = await conn.query(checkSql, [userId]);
-  
+      const [user] = await connectDB.query(checkSql, [userId]);
+
       if (!user || user.length === 0) {
-        throw new Error('User not found');
+        throw new Error("User not found");
       }
-  
+
       // Check if user info exists
       const checkInfoSql = "SELECT idUser FROM user WHERE idUser = ?";
-      const [existingInfo] = await conn.query(checkInfoSql, [userId]);
-  
+      const [existingInfo] = await connectDB.query(checkInfoSql, [userId]);
+
       let sql;
       let params;
-  
+
       if (existingInfo && existingInfo.length > 0) {
         // Update existing info
         sql = `
@@ -326,16 +327,16 @@ class UserModel {
           VALUES (?, ?, ?, ?)`;
         params = [userId, info.introduction, info.education, info.location];
       }
-  
-      await conn.query(sql, params);
-      await conn.commit();
+
+      await connectDB.query(sql, params);
+      await connectDB.commit();
       return true;
     } catch (error) {
-      await conn.rollback();
-      console.error('Error updating user info:', error);
+      await connectDB.rollback();
+      console.error("Error updating user info:", error);
       throw error;
     } finally {
-      conn.release();
+      connectDB.release();
     }
   }
 
@@ -362,12 +363,12 @@ class UserModel {
     return result;
   }
 
-  static async updateUserCover(userId, coverPath,io) {
+  static async updateUserCover(userId, coverPath, io) {
     io.emit("updateCover", { userId, coverPath });
     const sql = "UPDATE user SET background = ? WHERE idUser = ?";
     const result = await connectDB.query(sql, [coverPath, userId]);
-    console.log("result:",result);
-    
+    console.log("result:", result);
+
     return result;
   }
 }
