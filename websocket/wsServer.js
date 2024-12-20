@@ -533,6 +533,38 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
       socket.emit("responseReportReply", result);
     }
   });
+  socket.on("SetPrivacyPost", async ({ postId, privacy, idUser }) => {
+    try {
+      const success = await Post.setPrivacyPost(postId, privacy);
+      onlineUsers.forEach((userId, socketId) => {
+        if (userId == idUser && userId) {
+          io.to(socketId).emit("responsePrivacyPost", {
+            postId,
+            privacy,
+            success,
+          });
+        }
+      });
+    } catch (error) {
+      console.error("Error setting privacy for post:", error);
+    }
+  });
+  socket.on("setContentPost", async ({ postId, text }) => {
+    try {
+      const resultUpdate = await Post.setContentPost(postId, text);
+      onlineUsers.forEach((userId, socketId) => {
+        if (userId == socket.id && userId) {
+          io.to(socketId).emit("responseContentPost", {
+            postId,
+            text,
+            success: resultUpdate,
+          });
+        }
+      }); // Gửi thông tin bài viết đã được cập nhật cho client
+    } catch (error) {
+      console.error("Error setting content for post:", error);
+    }
+  });
 
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);

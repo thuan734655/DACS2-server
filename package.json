@@ -27,7 +27,7 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "start": "node server.js",
+    "start": "nodemon server start",
     "dev": "nodemon server.js",
     "build": "npm install"
   },

@@ -175,16 +175,19 @@ class Post {
       // Duyệt qua các bài viết mới trong phạm vi phân trang
       for (let i = start; i < end && i < newPosts.length; i++) {
         const [postId, post] = newPosts[i];
-
+        console.log(post, "post ne");
         // Kiểm tra quyền riêng tư bài viết
         if (
-          post.privacy === "public" ||
-          (post.privacy === "friends" && friendsList.includes(post.idUser))
+          post.privacy == "public" ||
+          (post.privacy == "friends" &&
+            (friendsList.includes(post.idUser) || post.idUser == userId)) ||
+          (post.privacy == "private" && post.idUser == userId)
         ) {
-          const groupedLikes = {}; // Chứa thông tin like theo emoji
-          const infoUserList = {}; // Thông tin người dùng
-          let commentCount = 0; // Số lượng bình luận
-          let replyCount = 0; // Số lượng phản hồi
+          console.log(post, "hehehehehhehehehin");
+          const groupedLikes = {};
+          const infoUserList = {};
+          let commentCount = 0;
+          let replyCount = 0;
 
           // Xử lý thông tin lượt thích (like) theo emoji
           if (post.likedBy) {
@@ -894,6 +897,26 @@ class Post {
     } catch (error) {
       console.error("Error in getPostsSharedByOthers:", error);
       throw error;
+    }
+  }
+  static async setPrivacyPost(postId, privacy) {
+    try {
+      (await db.ref(`posts/${postId}`).once("value")).val();
+      await db.ref(`posts/${postId}`).update({ privacy });
+      return true;
+    } catch (error) {
+      console.error("Error in setPrivacy:", error);
+      return false;
+    }
+  }
+  static async setContentPost(postId, text) {
+    try {
+      (await db.ref(`posts/${postId}`).once("value")).val();
+      await db.ref(`posts/${postId}`).update({ text });
+      return true;
+    } catch (error) {
+      console.error("Error in setContent:", error);
+      return false;
     }
   }
 }
