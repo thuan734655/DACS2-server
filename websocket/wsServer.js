@@ -549,11 +549,11 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
       console.error("Error setting privacy for post:", error);
     }
   });
-  socket.on("setContentPost", async ({ postId, text }) => {
+  socket.on("setContentPost", async ({ postId, text, idUser }) => {
     try {
       const resultUpdate = await Post.setContentPost(postId, text);
       onlineUsers.forEach((userId, socketId) => {
-        if (userId == socket.id && userId) {
+        if (userId == idUser && userId) {
           io.to(socketId).emit("responseContentPost", {
             postId,
             text,
