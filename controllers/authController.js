@@ -15,7 +15,7 @@ const authService = {
   // Tìm người dùng theo email
   async findUserByEmail(email) {
     const [rows] = await connectDB.query(
-      "SELECT u.idUser, u.fullName, u.avatar, infoDevice, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?",
+      "SELECT u.idUser, u.fullName, u.avatar, infoDevice, isAdmin, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?",
       [email]
     );
     return rows[0];
@@ -54,7 +54,7 @@ const authService = {
     const connection = await connectDB.getConnection();
     try {
       await connection.beginTransaction();
-      const hashedPassword = await bcrypt.hash(password, 10); // Mã hóa mật khẩu bằng bcryptjs
+      const hashedPassword = await bcrypt.hash(password, 10);
       const [accountResult] = await connection.query(
         "INSERT INTO account (email, password) VALUES (?, ?)",
         [email, hashedPassword]
@@ -107,6 +107,7 @@ class AuthController {
           email: user.email,
           fullName: user.fullName,
           avatar: user.avatar,
+          isAdmin: user.isAdmin,
         },
         token,
       });
