@@ -919,6 +919,19 @@ class Post {
       return false;
     }
   }
+  static async deletePost(postId) {
+    try {
+      (await db.ref(`posts/${postId}`).once("value")).val();
+      await db.ref(`posts/${postId}`).remove();
+      await db.ref(`likes-post/${postId}`).remove();
+      await db.ref(`comments-post/${postId}`).remove();
+      await db.ref(`shares-post/${postId}`).remove();
+      return true;
+    } catch (error) {
+      console.error("Error in deletePost:", error);
+      return false;
+    }
+  }
 }
 
 export default Post;

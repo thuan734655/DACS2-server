@@ -565,6 +565,19 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
       console.error("Error setting content for post:", error);
     }
   });
+  socket.on("deletePost", async ({ postId, idUser }) => {
+    const result = await Post.deletePost(postId);
+    if (result) {
+      onlineUsers.forEach((userId, socketId) => {
+        if (userId == idUser && userId) {
+          io.to(socketId).emit("responseDeletePost", {
+            postId,
+            success: result,
+          });
+        }
+      });
+    }
+  })
 
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
