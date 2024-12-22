@@ -577,7 +577,12 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
         }
       });
     }
-  })
+  });
+  socket.on("getAllReport", async () => {
+    const reports = await ReportModel.getAllReport();
+    console.log("Reports:", reports);
+    socket.emit("responseAllReport", reports);
+  });
 
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);

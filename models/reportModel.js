@@ -25,6 +25,17 @@ class ReportModel {
       return { success: false, error: error.message };
     }
   }
+  static async getAllReport() {
+    try {
+      const snapshot = await db.ref("reports").once("value");
+      const reports = snapshot.val() || {};
+      console.log("All reports:", reports);
+      return Object.values(reports);
+    } catch (error) {
+      console.error("Error getting reports:", error);
+      throw error;
+    }
+  }
 }
 
 export default ReportModel;
