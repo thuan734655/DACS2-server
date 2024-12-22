@@ -25,13 +25,25 @@ class ReportModel {
       return { success: false, error: error.message };
     }
   }
-  static async getAllReport() {
+  static async getAllReport(limit = 4, lastKey = null) {
     try {
-      const snapshot = await db.ref("reports").once("value");
+      let query = db.ref("reports").orderByKey().limitToFirst(limit);
+
+      // Nếu đã có khóa cuối cùng (lastKey), chỉ lấy dữ liệu sau khóa đó
+      if (lastKey) {
+        query = query.startAfter(lastKey);
+      }
+
+      const snapshot = await query.once("value");
       const reports = snapshot.val() || {};
+
+      // Nếu không có báo cáo nào, trả về rỗng
+      if (Object.keys(reports).length === 0) {
+        return { success: true, reports: [], nextKey: null };
+      }
+
       const result = await Promise.all(
         Object.entries(reports).map(async ([key, value]) => {
-          console.log("value", value);
           let relatedData = null;
 
           if (value.type === "POST" && value.postId) {
@@ -57,13 +69,40 @@ class ReportModel {
         })
       );
 
-      console.log(
-        "Fetched all reports successfully with related data:",
-        result
-      );
-      return { success: true, reports: result };
+      // Lấy khóa cuối cùng để sử dụng cho phân trang tiếp theo
+      const nextKey = Object.keys(reports).pop();
+
+      return {
+        success: true,
+        reports: result,
+        nextKey: nextKey || null, // null nếu không còn khóa nào
+      };
     } catch (error) {
       console.error("Error getting reports:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  static async deleteReport(idReport) {
+    try {
+      if (!idReport) {
+        console.error("No report ID provided to delete");
+        return { success: false, error: "No report ID provided to delete" };
+      }
+
+      const reportRef = db.ref(`reports/${idReport}`);
+      const snapshot = await reportRef.once("value");
+
+      if (snapshot.exists()) {
+        await reportRef.remove();
+        console.log(`Report with ID ${idReport} deleted successfully.`);
+        return { success: true };
+      } else {
+        console.warn(`Report with ID ${idReport} not found.`);
+        return { success: false, error: "Report not found" };
+      }
+    } catch (error) {
+      console.error("Error deleting report:", error);
       return { success: false, error: error.message };
     }
   }

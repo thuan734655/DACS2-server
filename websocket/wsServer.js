@@ -579,8 +579,9 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
       });
     }
   });
-  socket.on("getAllReport", async () => {
-    const reports = await ReportModel.getAllReport();
+  socket.on("getAllReport", async ({ limit, lastKey }) => {
+    const reports = await ReportModel.getAllReport(limit, lastKey);
+    console.log("reports");
     socket.emit("responseAllReport", reports);
   });
 
