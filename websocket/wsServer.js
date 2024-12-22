@@ -533,6 +533,7 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
       socket.emit("responseReportReply", result);
     }
   });
+
   socket.on("SetPrivacyPost", async ({ postId, privacy, idUser }) => {
     try {
       const success = await Post.setPrivacyPost(postId, privacy);

@@ -15,9 +15,10 @@ const authService = {
   // Tìm người dùng theo email
   async findUserByEmail(email) {
     const [rows] = await connectDB.query(
-      "SELECT u.idUser, u.fullName, u.avatar, infoDevice, isAdmin, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?",
+      "SELECT u.idUser, u.fullName, u.avatar, infoDevice, isAdmin, u.background, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?",
       [email]
     );
+    console.log("Kết quả truy vấn cơ sở dữ liệu:", rows[0]);
     return rows[0];
   },
 
@@ -28,7 +29,7 @@ const authService = {
 
     // Sử dụng bcryptjs để so sánh mật khẩu
     const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) throw { status: 401, message: "Invalid credentials" };
+    if (!isValidPassword) throw { status: 401, message: "Thông tin đăng nhập không hợp lệ" };
 
     return user;
   },
@@ -99,15 +100,24 @@ class AuthController {
         await updateInfoDevice(ip, email);
       }
 
+      console.log("Thông tin người dùng sau khi đăng nhập:", {
+        idUser: user.idUser,
+        email: user.email,
+        fullName: user.fullName,
+        avatar: user.avatar,
+        background: user.background,
+      });
       const token = authService.generateToken(user.idUser);
 
       return handleResponse(res, 200, true, "Đăng nhập thành công", {
+      
         user: {
           idUser: user.idUser,
           email: user.email,
           fullName: user.fullName,
           avatar: user.avatar,
           isAdmin: user.isAdmin,
+          background: user.background,
         },
         token,
       });
@@ -137,6 +147,7 @@ class AuthController {
       const existingUser = await authService.findUserByEmail(email);
       if (existingUser) {
         return handleResponse(res, 409, false, "Email đã tồn tại");
+        return handleResponse(res, 409, false, "Email đã tồn tại");
       }
 
       const birthDate = new Date(`${year}-${month}-${day}`);
@@ -158,7 +169,8 @@ class AuthController {
         { userId }
       );
     } catch (error) {
-      return handleResponse(res, 500, false, "Lỗi khi tạo tài khoản");
+      console.error("Registration error:", error);
+      return handleResponse(res, 500, false, "Error creating account");
     }
   }
 }
