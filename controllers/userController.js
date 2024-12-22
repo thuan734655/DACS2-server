@@ -415,6 +415,8 @@ class UserController {
       return handleResponse(res, 500, "error", "Internal server error");
     }
   }
+
+
 }
 
 export default UserController;

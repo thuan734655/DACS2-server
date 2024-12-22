@@ -69,7 +69,7 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
 
           // Duyệt qua các phần tử trong onlineUsers để tìm socketId tương ứng với idUser
           onlineUsers.forEach((userId, socketId) => {
-            if (userId == idUser.idUser) {
+            if (userId == idUser.idUser || userId == post.idUser) {
               targetSocketId = socketId;
             }
           });
@@ -94,7 +94,7 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
           io.to(targetSocketId).emit("receiveNewPost", { post: postResponse });
         }
       }
-      console.log(`Post broadcasted with privacy: ${postData.privacy}`);
+      console.log(`x`);
     } catch (error) {
       console.error("Error creating post:", error);
       socket.emit("postError", { message: "Failed to create post" });

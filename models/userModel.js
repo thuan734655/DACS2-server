@@ -370,6 +370,8 @@ class UserModel {
     
     return result;
   }
+
+
 }
 
 export default UserModel;
