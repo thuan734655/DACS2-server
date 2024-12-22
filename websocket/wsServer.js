@@ -581,7 +581,6 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
   });
   socket.on("getAllReport", async () => {
     const reports = await ReportModel.getAllReport();
-    console.log("Reports:", reports);
     socket.emit("responseAllReport", reports);
   });
 
