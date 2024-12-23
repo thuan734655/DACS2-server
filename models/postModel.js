@@ -978,17 +978,67 @@ class Post {
       return false;
     }
   }
-  static async deletePost(postId) {
+  static async  deletePost(postId) {
+    console.log(123);
     try {
-      (await db.ref(`posts/${postId}`).once("value")).val();
-      await db.ref(`posts/${postId}`).remove();
+      // 1. Lấy thông tin bài viết
+      const postSnapshot = await db.ref(`posts/${postId}`).once("value");
+      const postData = postSnapshot.val();
+
+      if (!postData) {
+        throw new Error("Post not found");
+      }
+
+      // 2. Xóa danh sách bình luận liên quan
+      if (postData.comments && postData.comments.length > 0) {
+        for (const commentId of postData.comments) {
+          // Gọi hàm xóa bình luận (đã được định nghĩa trước đó)
+          await this.deleteComment(commentId);
+        }
+      }
+
+      // 3. Xóa các lượt thích liên quan
       await db.ref(`likes-post/${postId}`).remove();
-      await db.ref(`comments-post/${postId}`).remove();
-      await db.ref(`shares-post/${postId}`).remove();
-      return true;
+
+      // 4. Xóa các lượt chia sẻ
+      const sharesSnapshot = await db
+        .ref("shares-post")
+        .orderByChild("originalPostId")
+        .equalTo(postId)
+        .once("value");
+      const sharesData = sharesSnapshot.val();
+
+      if (sharesData) {
+        for (const shareKey of Object.keys(sharesData)) {
+          await db.ref(`shares-post/${shareKey}`).remove();
+        }
+      }
+
+      // 5. Xóa các thông báo liên quan
+      const notificationsSnapshot = await db
+        .ref("notifications")
+        .orderByChild("postId")
+        .equalTo(postId)
+        .once("value");
+      const notificationsData = notificationsSnapshot.val();
+
+      if (notificationsData) {
+        for (const notificationKey of Object.keys(notificationsData)) {
+          await db.ref(`notifications/${notificationKey}`).remove();
+        }
+      }
+
+      // 6. Xóa bài viết
+      await db.ref(`posts/${postId}`).remove();
+
+      console.log(`Post ${postId} and related data deleted successfully.`);
+      return {
+        success: true,
+        message: "Post and related data deleted successfully.",
+      };
     } catch (error) {
       console.error("Error in deletePost:", error);
-      return false;
+      return { success: false, error: error.message };
     }
   }
 }
