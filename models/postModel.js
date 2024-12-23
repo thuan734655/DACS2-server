@@ -41,6 +41,69 @@ class Post {
     }
   }
 
+  static async deleteComment(commentId) {
+    console.log(commentId, " console.log(commentId);");
+    try {
+      // Lấy dữ liệu của bình luận
+      const commentSnapshot = await db
+        .ref(`commentsList/${commentId}`)
+        .once("value");
+      const commentData = commentSnapshot.val();
+
+      if (!commentData) {
+        throw new Error("Comment not found");
+      }
+
+      // 1. Xóa các trả lời liên quan
+      if (commentData.replies && commentData.replies.length > 0) {
+        for (const replyId of commentData.replies) {
+          await db.ref(`replies/${replyId}`).remove();
+        }
+      }
+
+      // 2. Xóa các thông báo liên quan
+      const notificationsSnapshot = await db
+        .ref("notifications")
+        .orderByChild("commentId")
+        .equalTo(commentId)
+        .once("value");
+      const notifications = notificationsSnapshot.val();
+      if (notifications) {
+        for (const notificationKey of Object.keys(notifications)) {
+          await db.ref(`notifications/${notificationKey}`).remove();
+        }
+      }
+
+      // 3. Cập nhật bài viết để xóa ID bình luận khỏi danh sách comments
+      if (commentData.postId) {
+        const postSnapshot = await db
+          .ref(`posts/${commentData.postId}`)
+          .once("value");
+        const postData = postSnapshot.val();
+
+        if (postData && postData.comments) {
+          const updatedComments = postData.comments.filter(
+            (id) => id !== commentId
+          );
+          await db
+            .ref(`posts/${commentData.postId}/comments`)
+            .set(updatedComments);
+        }
+      }
+
+      // 4. Xóa bình luận
+      await db.ref(`commentsList/${commentId}`).remove();
+      console.log("123");
+      return {
+        success: true,
+        message: "Comment and related data deleted successfully.",
+      };
+    } catch (error) {
+      console.error("Error deleting comment and related data:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
   // Trả lời bình luận
   static async replyToComment({ commentId, newReplyData }) {
     console.log("replyToCommen", commentId);
@@ -576,25 +639,21 @@ class Post {
       // Sử dụng Promise.all để xử lý tất cả các comment đồng thởi
       return await Promise.all(
         commentIds.map(async (commentId) => {
-          // Lấy dữ liệu của bình luận từ "commentsList/{commentId}"
           const commentSnapshot = await db
             .ref(`commentsList/${commentId}`)
             .once("value");
 
           const comment = commentSnapshot.val();
-
-          // Lấy thông tin người dùng từ cơ sở dữ liệu qua idUser
           const userInfo = await UserModel.getInfoByIdUser(comment.idUser);
-          comment.user = userInfo[0]; // Gán thông tin người dùng vào bình luận
+          comment.user = userInfo[0];
 
-          // Nếu bình luận có trả lời, gọi đệ quy để lấy các trả lời (replies)
           if (comment.replies && comment.replies.length > 0) {
             comment.replies = await getRepliesRecursively(comment.replies); // Gọi hàm đệ quy để lấy các trả lời
           }
 
           comment.commentId = commentId;
 
-          return comment; // Trả về bình luận đã có thông tin người dùng và trả lời
+          return comment;
         })
       );
     } catch (error) {

@@ -566,19 +566,6 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
       console.error("Error setting content for post:", error);
     }
   });
-  socket.on("deletePost", async ({ postId, idUser }) => {
-    const result = await Post.deletePost(postId);
-    if (result) {
-      onlineUsers.forEach((userId, socketId) => {
-        if (userId == idUser && userId) {
-          io.to(socketId).emit("responseDeletePost", {
-            postId,
-            success: result,
-          });
-        }
-      });
-    }
-  });
   socket.on("getAllReport", async ({ limit, lastKey }) => {
     const reports = await ReportModel.getAllReport(limit, lastKey);
     socket.emit("responseAllReport", reports);
@@ -586,6 +573,19 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
   socket.on("deleteReport", async (idReport) => {
     const result = await ReportModel.deleteReport(idReport);
     socket.emit("responseDeleteReport", result);
+  });
+  socket.on("deleteComment", async ({ commentId, idUser }) => {
+    console.log("deleteComment", commentId);
+    const result = await Post.deleteComment(commentId);
+    if (result) {
+      onlineUsers.forEach((userId, socketId) => {
+        if (userId == idUser && userId) {
+          io.to(socketId).emit("responseDeletePost", {
+            success: result,
+          });
+        }
+      });
+    }
   });
 
   socket.on("disconnect", () => {
