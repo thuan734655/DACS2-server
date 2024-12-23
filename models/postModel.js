@@ -207,7 +207,7 @@ class Post {
     userId,
     fetchedPostIdsFromClient,
     page = 1,
-    limit = 10
+    limit = 4
   ) {
     try {
       // Lấy tất cả các bài viết từ Firebase
