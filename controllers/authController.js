@@ -29,7 +29,8 @@ const authService = {
 
     // Sử dụng bcryptjs để so sánh mật khẩu
     const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) throw { status: 401, message: "Thông tin đăng nhập không hợp lệ" };
+    if (!isValidPassword)
+      throw { status: 401, message: "Thông tin đăng nhập không hợp lệ" };
 
     return user;
   },
@@ -87,12 +88,28 @@ class AuthController {
       if (needs2FA) {
         return handleResponse(res, 202, true, "Yêu cầu 2FA", {
           requires2FA: true,
+          user: {
+            idUser: user.idUser,
+            email: user.email,
+            fullName: user.fullName,
+            avatar: user.avatar,
+            isAdmin: user.isAdmin,
+            background: user.background,
+          },
         });
       }
 
       if (user.isActive === 0) {
         return handleResponse(res, 202, true, "Tài khoản không hoạt động", {
           active: true,
+          user: {
+            idUser: user.idUser,
+            email: user.email,
+            fullName: user.fullName,
+            avatar: user.avatar,
+            isAdmin: user.isAdmin,
+            background: user.background,
+          },
         });
       }
 
@@ -110,7 +127,6 @@ class AuthController {
       const token = authService.generateToken(user.idUser);
 
       return handleResponse(res, 200, true, "Đăng nhập thành công", {
-      
         user: {
           idUser: user.idUser,
           email: user.email,
