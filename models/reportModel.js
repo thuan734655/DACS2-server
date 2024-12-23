@@ -106,6 +106,24 @@ class ReportModel {
       return { success: false, error: error.message };
     }
   }
+  static async updateReportStatus(idReport, status) {
+    try {
+      const reportSnapshot = await db.ref(`reports/${idReport}`).once("value");
+      const reportData = reportSnapshot.val();
+
+      // Kiểm tra nếu báo cáo không tồn tại
+      if (!reportData) {
+        return { success: false, error: "Report not found" };
+      }
+
+      await db.ref(`reports/${idReport}`).update({ status });
+
+      return { success: true, message: "Report status updated successfully." };
+    } catch (error) {
+      console.error("Error updating report status:", error);
+      return { success: false, error: error.message };
+    }
+  }
 }
 
 export default ReportModel;

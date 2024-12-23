@@ -600,6 +600,18 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
       });
     }
   });
+  socket.on("setReadReport", async ({idReport, status, idUser}) => {
+    const result = await ReportModel.updateReportStatus(idReport, status);
+    if (result) {
+      onlineUsers.forEach((userId, socketId) => {
+        if (userId == idUser && userId) {
+          io.to(socketId).emit("responseUpdateReadReport", {
+            success: result,
+          });
+        }
+      });
+    }
+  });
 
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
