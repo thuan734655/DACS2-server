@@ -15,7 +15,7 @@ const authService = {
   // Tìm người dùng theo email
   async findUserByEmail(email) {
     const [rows] = await connectDB.query(
-      "SELECT u.idUser, u.fullName, u.avatar, infoDevice, isAdmin, u.background, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?",
+      "SELECT u.idUser, u.fullName, u.avatar, infoDevice, isAdmin, u.background, isActive, a.password FROM user u JOIN account a ON u.idUser = a.idUser WHERE a.email = ?",
       [email]
     );
     console.log("Kết quả truy vấn cơ sở dữ liệu:", rows[0]);
@@ -35,7 +35,6 @@ const authService = {
     return user;
   },
 
-  // Kiểm tra 2FA nếu cần
   async process2FA(user, email, ip) {
     if (user.infoDevice && ip !== user.infoDevice) {
       const otp = await sendOTP(email);
@@ -98,8 +97,10 @@ class AuthController {
           },
         });
       }
-
       if (user.isActive === 0) {
+        const otp = await sendOTP(email);
+        await updateOTPService(otp, email);
+
         return handleResponse(res, 202, true, "Tài khoản không hoạt động", {
           active: true,
           user: {
