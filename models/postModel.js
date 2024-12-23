@@ -978,8 +978,7 @@ class Post {
       return false;
     }
   }
-  static async  deletePost(postId) {
-    console.log(123);
+  static async deletePost(postId) {
     try {
       // 1. Lấy thông tin bài viết
       const postSnapshot = await db.ref(`posts/${postId}`).once("value");
@@ -992,7 +991,21 @@ class Post {
       // 2. Xóa danh sách bình luận liên quan
       if (postData.comments && postData.comments.length > 0) {
         for (const commentId of postData.comments) {
-          // Gọi hàm xóa bình luận (đã được định nghĩa trước đó)
+          // Xóa report liên quan đến bình luận
+          const reportsSnapshot = await db
+            .ref("reports")
+            .orderByChild("commentId")
+            .equalTo(commentId)
+            .once("value");
+          const reportsData = reportsSnapshot.val();
+
+          if (reportsData) {
+            for (const reportKey of Object.keys(reportsData)) {
+              await db.ref(`reports/${reportKey}`).remove();
+            }
+          }
+
+          // Xóa bình luận
           await this.deleteComment(commentId);
         }
       }
