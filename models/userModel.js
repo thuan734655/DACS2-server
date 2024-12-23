@@ -119,13 +119,13 @@ class UserModel {
         await conn.query(deleteRequestSql, [requester_id, receiver_id]);
 
         // Tạo thông báo từ chối
-        const [requester] = await UserModel.getInfoByIdUser(requester_id);
+        const [requester] = await UserModel.getInfoByIdUser(receiver_id);
         const notificationData = {
           type: "FRIEND_REQUEST_DENY",
-          senderId: +requester_id,
+          senderId: +receiver_id, // bị ngược đoạn client hàm respondToFriendRequest trong folder services
           senderName: requester[0]?.fullName || "Unknown",
           senderAvatar: requester[0]?.avatar || "",
-          recipientId: +receiver_id,
+          recipientId: +requester_id, // bị ngược đoạn client hàm respondToFriendRequest trong folder services
           createdAt: new Date(),
         };
         createAndEmitNotification(io, notificationData);
@@ -167,13 +167,13 @@ class UserModel {
           ]);
 
           // Tạo thông báo chấp nhận
-          const [requester] = await UserModel.getInfoByIdUser(requester_id);
+          const [requester] = await UserModel.getInfoByIdUser(receiver_id);
           const notificationData = {
             type: "FRIEND_REQUEST_ACCEPTED",
-            senderId: +requester_id,
+            senderId: +receiver_id, // bị ngược đoạn client hàm respondToFriendRequest trong folder services
             senderName: requester[0]?.fullName || "Unknown",
             senderAvatar: requester[0]?.avatar || "",
-            recipientId: +receiver_id,
+            recipientId: +requester_id, // bị ngược đoạn client hàm respondToFriendRequest trong folder services
             createdAt: new Date(),
           };
 
