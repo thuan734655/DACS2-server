@@ -1,8 +1,10 @@
+import connectDB from "../config/ConnectDB.js";
 import db from "../config/firebaseConfig.js";
 import NotificationModel from "../models/notificationModel.js";
 import Post from "../models/postModel.js";
 import ReportModel from "../models/reportModel.js";
 import ReportMode from "../models/reportModel.js";
+import handleEmail from "../models/sendEmailModel.js";
 import UserModel from "../models/userModel.js";
 import handleFileWebSocket from "../utils/handleFileWebSocket.js";
 import { createAndEmitNotification } from "../utils/notificationForm.js";
@@ -600,7 +602,7 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
       });
     }
   });
-  socket.on("setReadReport", async ({idReport, status, idUser}) => {
+  socket.on("setReadReport", async ({ idReport, status, idUser }) => {
     const result = await ReportModel.updateReportStatus(idReport, status);
     if (result) {
       onlineUsers.forEach((userId, socketId) => {
@@ -610,6 +612,59 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
           });
         }
       });
+    }
+  });
+  socket.on("sendMail", async (data, type, idUser) => {
+    let socketIdIdOfUser = "";
+    onlineUsers.forEach((userId, socketId) => {
+      if (userId == idUser && userId) {
+        socketIdIdOfUser = socketId;
+      }
+    });
+    try {
+      const { id, dataMail } = data; // id là postId hoặc commentId
+
+      // 1. Xác định idUser dựa trên loại (type: POST hoặc COMMENT)
+      if (type === "POST") {
+        const postSnapshot = await db.ref(`posts/${id}`).once("value");
+        const postData = postSnapshot.val();
+
+        if (!postData) {
+          throw new Error("Post not found");
+        }
+      } else if (type === "COMMENT") {
+        const commentSnapshot = await db
+          .ref(`commentsList/${id}`)
+          .once("value");
+        const commentData = commentSnapshot.val();
+
+        if (!commentData) {
+          throw new Error("Comment not found");
+        }
+        idUser = commentData.idUser;
+      }
+
+      if (!idUser) {
+        throw new Error("User ID not found");
+      }
+
+      // 2. Truy vấn email từ bảng account trong MySQL
+      const query = "SELECT email FROM account WHERE idUser = ?";
+      const [rows] = await connectDB.execute(query, [idUser]);
+
+      if (rows.length === 0 || !rows[0].email) {
+        throw new Error("Email not found for user");
+      }
+
+      dataMail.email = rows[0].email;
+      await handleEmail(dataMail);
+
+      // 4. Phản hồi thành công qua socket
+      io.to(socketIdIdOfUser).emit("responseSendEmail", { success: true });
+    } catch (error) {
+      // Phản hồi lỗi qua socket
+      console.error("Error sending email:", error);
+      io.to(socketIdIdOfUser).emit("responseSendEmail", { success: false });
     }
   });
 
