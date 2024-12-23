@@ -2,15 +2,27 @@ import mysql from "mysql2/promise";
 import dotenv from "dotenv";
 
 dotenv.config();
-const uri =
-  process.env.DB_URI ||
-  "mysql://uibhubsgfu8zpu6y:EkiBxp1yjheHClDVhTQM@beeelnlvykq1ywgjbzbs-mysql.services.clever-cloud.com:3306/beeelnlvykq1ywgjbzbs";
 
 const connectDB = mysql.createPool({
-  uri,
+  host: "42.96.4.215",
+  user: "dacs2",
+  password: "dacs2",
+  database: "dacs2",
   waitForConnections: true,
-  connectionLimit: 5,
+  connectionLimit: 100,
   queueLimit: 0,
 });
+
+// Test the connection
+async function testDBConnection() {
+  try {
+    const [rows, fields] = await connectDB.execute("SELECT 1");
+    console.log("Database connected successfully:", rows);
+  } catch (err) {
+    console.error("Error connecting to the database:", err.message);
+  }
+}
+
+testDBConnection();
 
 export default connectDB;
