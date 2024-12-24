@@ -300,7 +300,7 @@ class Post {
         }
       }
 
-      const hasMore = sortedPosts.length > end;
+      const hasMore = sortedPosts.length > 0;
 
       console.log("Fetched posts", infoPost);
       return {
@@ -320,57 +320,100 @@ class Post {
     limit = 10
   ) {
     try {
-      // Lấy tất cả các bài viết từ Firebase
-      const postsSnapshot = await db
+      // Lấy dữ liệu bài viết và bài chia sẻ song song
+      const postsPromise = db
         .ref("posts")
         .orderByChild("createdAt")
         .once("value");
+
+      const sharesPostsPromise = db
+        .ref("shares-post")
+        .orderByChild("sharedAt")
+        .once("value");
+
+      // Lấy tất cả dữ liệu song song
+      const [postsSnapshot, sharesPostsSnapshot] = await Promise.all([
+        postsPromise,
+        sharesPostsPromise,
+      ]);
+
       const posts = postsSnapshot.val() || {};
+      const sharesPosts = sharesPostsSnapshot.val() || {};
 
-      // Lấy danh sách bạn bè của người dùng
-      const friendsList = await UserModel.getFriendsList(userId);
+      // Chuyển đổi dữ liệu thành mảng và gộp lại
+      const combinedPosts = [
+        ...Object.entries(posts).map(([id, post]) => ({
+          id,
+          ...post,
+          type: "post",
+        })),
+        ...Object.entries(sharesPosts).map(([id, sharePost]) => ({
+          id,
+          ...sharePost,
+          type: "share",
+        })),
+      ];
 
-      // Lấy tất cả các bài viết chia sẻ của người dùng
-      const sharesPostSnapshot = await db.ref("shares-post").once("value");
-      const sharesPosts = sharesPostSnapshot.val() || {};
+      console.log(combinedPosts.length, "combined posts");
+
+      // Lọc và sắp xếp bài viết theo thời gian
+      const sortedPosts = combinedPosts
+        .filter(
+          (post) =>
+            Array.isArray(fetchedPostIdsFromClient) &&
+            !fetchedPostIdsFromClient.includes(post.id)
+        )
+        .sort((a, b) => {
+          const aDate = a.createdAt || a.sharedAt || 0; 
+          const bDate = b.createdAt || b.sharedAt || 0;
+          return bDate - aDate; 
+        });
+
+      console.log(sortedPosts.length, "sortedPosts");
+
+      // Giới hạn số lượng bài viết trả về, nhưng nếu số lượng bài viết còn lại ít hơn limit, sẽ lấy hết
+      const start =  limit;
+      const remainingPosts = sortedPosts.slice(start);
+      console.log(remainingPosts.length, "remainingPosts");
+
+      // Nếu số bài viết còn lại ít hơn limit, lấy hết, nếu không lấy đúng limit
+      const paginatedPosts =
+        remainingPosts.length < limit
+          ? remainingPosts
+          : remainingPosts.slice(0, limit);
 
       const infoPost = {};
 
-      // Chuyển đổi object posts thành mảng và sắp xếp theo thời gian tạo (mới nhất trước)
-      const sortedPosts = Object.entries(posts).sort(
-        (a, b) => b[1].createdAt - a[1].createdAt
-      );
-      const sortedSharesPosts = Object.entries(sharesPosts).sort(
-        (a, b) => b[1].sharedAt - a[1].sharedAt
-      );
+      // Hàm đếm số phản hồi
+      const countReplies = async (replyIds) => {
+        if (!replyIds || replyIds.length === 0) return 0;
+        const replies = await Promise.all(
+          replyIds.map((replyId) =>
+            db
+              .ref(`replies/${replyId}`)
+              .once("value")
+              .then((snapshot) => snapshot.val())
+          )
+        );
+        return replies.reduce((total, reply) => {
+          if (!reply) return total;
+          return total + 1 + (reply.replies ? countReplies(reply.replies) : 0);
+        }, 0);
+      };
 
-      // Tính toán vị trí bắt đầu và kết thúc cho phân trang
-      const start = (page - 1) * limit;
-      const end = start + limit;
+      // Xử lý bài viết
+      await Promise.all(
+        paginatedPosts.map(async (post) => {
+          const groupedLikes = {};
+          const infoUserList = {};
+          let commentCount = 0;
+          let replyCount = 0;
+          const postIdUser = post.idUser || post.sharedBy;
 
-      // Lọc các bài viết đã fetch trước đó
-      const newPosts = sortedPosts.filter(
-        ([postId]) => !fetchedPostIdsFromClient.includes(postId)
-      );
-      const newSharesPosts = sortedSharesPosts.filter(
-        ([sharePostId]) => !fetchedPostIdsFromClient.includes(sharePostId)
-      );
+          // Chỉ lấy bài viết của chính người dùng
+          if (postIdUser != userId) return;
 
-      // Duyệt qua các bài viết mới trong phạm vi phân trang
-      for (let i = start; i < end && i < newPosts.length; i++) {
-        const [postId, post] = newPosts[i];
-
-        // Kiểm tra quyền riêng tư bài viết
-        if (
-          post.privacy === "public" ||
-          (post.privacy === "friends" && friendsList.includes(post.idUser))
-        ) {
-          const groupedLikes = {}; // Chứa thông tin like theo emoji
-          const infoUserList = {}; // Thông tin người dùng
-          let commentCount = 0; // Số lượng bình luận
-          let replyCount = 0; // Số lượng phản hồi
-
-          // Xử lý thông tin lượt thích (like) theo emoji
+          // Xử lý lượt thích
           if (post.likedBy) {
             for (const [userId, emoji] of Object.entries(post.likedBy)) {
               if (!groupedLikes[emoji]) groupedLikes[emoji] = [];
@@ -378,100 +421,42 @@ class Post {
             }
           }
 
-          // Lấy thông tin người dùng của bài viết
+          // Lấy thông tin người dùng
           if (post.idUser) {
             const [user] = await UserModel.getInfoByIdUser(post.idUser);
             infoUserList[post.idUser] = { id: post.idUser, ...user[0] };
           }
 
-          // Đếm số lượng comment và reply
+          // Đếm số bình luận và phản hồi
           if (Array.isArray(post.comments)) {
-            commentCount = post.comments.length; // Số lượng bình luận
-            for (const commentId of post.comments) {
-              const commentSnapshot = await db
-                .ref(`commentsList/${commentId}`)
-                .once("value");
-              const comment = commentSnapshot.val();
-              if (comment) {
-                const replies = await countReplies(comment.replies || []);
-                replyCount += replies;
-              }
-            }
+            commentCount = post.comments.length;
+            replyCount = (
+              await Promise.all(
+                post.comments.map((commentId) =>
+                  db
+                    .ref(`commentsList/${commentId}`)
+                    .once("value")
+                    .then((snapshot) => snapshot.val())
+                    .then((comment) =>
+                      comment ? countReplies(comment.replies || []) : 0
+                    )
+                )
+              )
+            ).reduce((total, count) => total + count, 0);
           }
 
-          // Đưa dữ liệu vào infoPost
-          infoPost[postId] = {
+          infoPost[post.id] = {
             post,
             groupedLikes,
             infoUserList,
             commentCount: commentCount + replyCount,
           };
-        }
-      }
+        })
+      );
 
-      // Duyệt qua các bài viết chia sẻ mới trong phạm vi phân trang
-      for (let i = start; i < end && i < newSharesPosts.length; i++) {
-        const [sharePostId, sharePost] = newSharesPosts[i];
-
-        // Kiểm tra quyền riêng tư bài viết chia sẻ
-        if (
-          sharePost.privacy === "public" ||
-          (sharePost.privacy === "friends" &&
-            friendsList.includes(sharePost.originalUserId))
-        ) {
-          const groupedLikes = {}; // Chứa thông tin like theo emoji
-          const infoUserList = {}; // Thông tin người dùng
-          let commentCount = 0; // Số lượng bình luận
-          let replyCount = 0; // Số lượng phản hồi
-
-          // Xử lý thông tin lượt thích (like) theo emoji
-          if (sharePost.likedBy) {
-            for (const [userId, emoji] of Object.entries(sharePost.likedBy)) {
-              if (!groupedLikes[emoji]) groupedLikes[emoji] = [];
-              groupedLikes[emoji].push(userId);
-            }
-          }
-
-          // Lấy thông tin người dùng của bài viết chia sẻ
-          if (sharePost.originalUserId) {
-            const [user] = await UserModel.getInfoByIdUser(
-              sharePost.originalUserId
-            );
-            infoUserList[sharePost.originalUserId] = {
-              id: sharePost.originalUserId,
-              ...user[0],
-            };
-          }
-
-          // Đếm số lượng comment và reply
-          if (Array.isArray(sharePost.comments)) {
-            commentCount = sharePost.comments.length;
-            for (const commentId of sharePost.comments) {
-              const commentSnapshot = await db
-                .ref(`commentsList/${commentId}`)
-                .once("value");
-              const comment = commentSnapshot.val();
-              if (comment) {
-                const replies = await countReplies(comment.replies || []);
-                replyCount += replies;
-              }
-            }
-          }
-
-          // Đưa dữ liệu vào infoPost
-          infoPost[sharePostId] = {
-            post: sharePost.sharedPostContent,
-            groupedLikes,
-            infoUserList,
-            commentCount: commentCount + replyCount,
-          };
-        }
-      }
-
-      // Trả về tất cả bài viết và bài viết chia sẻ
       return {
         posts: infoPost,
-        hasMore: newPosts.length > end || newSharesPosts.length > end,
+        hasMore: remainingPosts.length > paginatedPosts.length, // Kiểm tra xem còn bài viết chưa tải không
       };
     } catch (error) {
       console.error("Error getting all user posts and shares:", error);
