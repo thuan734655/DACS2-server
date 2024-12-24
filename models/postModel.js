@@ -300,12 +300,9 @@ class Post {
         }
       }
 
-      const hasMore = sortedPosts.length > 0;
-
-      console.log("Fetched posts", infoPost);
       return {
         posts: infoPost,
-        hasMore,
+        hasMore: Object.keys(infoPost).length > 0,
       };
     } catch (error) {
       console.error("Error getting all posts:", error);
