@@ -623,7 +623,7 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
     });
     try {
       const { id, dataMail } = data; // id là postId hoặc commentId
-
+      let postIduser = null;
       // 1. Xác định idUser dựa trên loại (type: POST hoặc COMMENT)
       if (type === "POST") {
         const postSnapshot = await db.ref(`posts/${id}`).once("value");
@@ -632,6 +632,7 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
         if (!postData) {
           throw new Error("Post not found");
         }
+        postIduser = postData.idUser;
       } else if (type === "COMMENT") {
         const commentSnapshot = await db
           .ref(`commentsList/${id}`)
@@ -641,22 +642,23 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
         if (!commentData) {
           throw new Error("Comment not found");
         }
-        idUser = commentData.idUser;
+        postIduser = commentData.idUser;
       }
 
-      if (!idUser) {
+      if (!postIduser) {
         throw new Error("User ID not found");
       }
 
       // 2. Truy vấn email từ bảng account trong MySQL
       const query = "SELECT email FROM account WHERE idUser = ?";
-      const [rows] = await connectDB.execute(query, [idUser]);
+      const [rows] = await connectDB.execute(query, [postIduser]);
 
       if (rows.length === 0 || !rows[0].email) {
         throw new Error("Email not found for user");
       }
 
       dataMail.email = rows[0].email;
+      console.log(dataMail);
       await handleEmail(dataMail);
 
       // 4. Phản hồi thành công qua socket
