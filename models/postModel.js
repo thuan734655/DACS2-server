@@ -354,8 +354,6 @@ class Post {
         })),
       ];
 
-      console.log(combinedPosts.length, "combined posts");
-
       // Lọc và sắp xếp bài viết theo thời gian
       const sortedPosts = combinedPosts
         .filter(
@@ -364,23 +362,13 @@ class Post {
             !fetchedPostIdsFromClient.includes(post.id)
         )
         .sort((a, b) => {
-          const aDate = a.createdAt || a.sharedAt || 0; 
+          const aDate = a.createdAt || a.sharedAt || 0;
           const bDate = b.createdAt || b.sharedAt || 0;
-          return bDate - aDate; 
+          return bDate - aDate;
         });
 
-      console.log(sortedPosts.length, "sortedPosts");
-
-      // Giới hạn số lượng bài viết trả về, nhưng nếu số lượng bài viết còn lại ít hơn limit, sẽ lấy hết
-      const start =  limit;
-      const remainingPosts = sortedPosts.slice(start);
-      console.log(remainingPosts.length, "remainingPosts");
-
-      // Nếu số bài viết còn lại ít hơn limit, lấy hết, nếu không lấy đúng limit
       const paginatedPosts =
-        remainingPosts.length < limit
-          ? remainingPosts
-          : remainingPosts.slice(0, limit);
+        sortedPosts.length < limit ? sortedPosts : sortedPosts.slice(0, limit);
 
       const infoPost = {};
 
@@ -456,7 +444,7 @@ class Post {
 
       return {
         posts: infoPost,
-        hasMore: remainingPosts.length > paginatedPosts.length, // Kiểm tra xem còn bài viết chưa tải không
+        hasMore: sortedPosts.length > 0, 
       };
     } catch (error) {
       console.error("Error getting all user posts and shares:", error);

@@ -136,7 +136,7 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
           page,
           limit
         );
-
+        console.log(results.posts);
         socket.emit("receivePostsAndSharePostOfUser", {
           posts: results.posts,
           page: page,
