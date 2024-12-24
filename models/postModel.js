@@ -441,10 +441,9 @@ class Post {
           };
         })
       );
-
       return {
         posts: infoPost,
-        hasMore: sortedPosts.length > 0, 
+        hasMore: Object.keys(infoPost).length > 0,
       };
     } catch (error) {
       console.error("Error getting all user posts and shares:", error);
