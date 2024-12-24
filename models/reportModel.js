@@ -13,6 +13,7 @@ class ReportModel {
         reason: content.reason || "",
         type: content.type || "",
         status: "PENDING",
+        status: "PENDING",
         createdAt: new Date().toISOString(),
       };
 

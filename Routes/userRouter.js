@@ -34,6 +34,9 @@ router.post(
   upload.single("cover"),
   UserController.updateCover
 );
-
+router.delete(
+  "/users/:userId/friends/:friendId",
+  UserController.unfriendUser
+);
 
 export default router;
