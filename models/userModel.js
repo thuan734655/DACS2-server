@@ -234,7 +234,7 @@ class UserModel {
           (fr.requester_id = ? AND fr.receiver_id = u.idUser)
           OR (fr.receiver_id = ? AND fr.requester_id = u.idUser)
         WHERE u.idUser != ? 
-        AND u.fullName LIKE ?
+        AND u.fullName LIKE ? 
         ORDER BY 
           CASE 
             WHEN u.fullName LIKE ? THEN 0
@@ -270,7 +270,8 @@ class UserModel {
       FROM friends f
       JOIN user u ON f.idFriend = u.idUser
       WHERE f.idUser = ?
-      ORDER BY u.fullName`;
+      ORDER BY u.fullName
+    `;
 
     const [rows] = await connectDB.query(sql, [userId]);
     console.log("Danh sách bạn bè:", rows);
@@ -281,7 +282,8 @@ class UserModel {
       const sql = `
         SELECT introduction, education, location 
         FROM user 
-        WHERE idUser = ?`;
+        WHERE idUser = ?
+      `;
       const [result] = await connectDB.query(sql, [userId]);
       return (
         result[0] || {
@@ -320,13 +322,15 @@ class UserModel {
         sql = `
           UPDATE user 
           SET introduction = ?, education = ?, location = ?
-          WHERE idUser = ?`;
+          WHERE idUser = ?
+        `;
         params = [info.introduction, info.education, info.location, userId];
       } else {
         // Insert new info
         sql = `
           INSERT INTO user (idUser, introduction, education, location)
-          VALUES (?, ?, ?, ?)`;
+          VALUES (?, ?, ?, ?)
+        `;
         params = [userId, info.introduction, info.education, info.location];
       }
 
@@ -372,6 +376,29 @@ class UserModel {
     console.log("result:", result);
 
     return result;
+  }
+
+  static async unfriendUser(userId, friendId) {
+    const conn = await connectDB.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      // Delete friendship in both directions
+      const sql = `DELETE FROM friends 
+        WHERE (idUser = ? AND idFriend = ?) 
+        OR (idUser = ? AND idFriend = ?)
+      `;
+      
+      await conn.query(sql, [userId, friendId, friendId, userId]);
+      
+      await conn.commit();
+      return true;
+    } catch (error) {
+      await conn.rollback();
+      throw error;
+    } finally {
+      conn.release();
+    }
   }
 }
 

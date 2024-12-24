@@ -420,6 +420,23 @@ class UserController {
       return handleResponse(res, 500, "error", "Internal server error");
     }
   }
+
+  static async unfriendUser(req, res) {
+    const userId = req.params.userId;
+    const friendId = req.params.friendId;
+
+    if (!userId || !friendId) {
+      return handleResponse(res, 400, "fail", "Both user ID and friend ID are required.");
+    }
+
+    try {
+      await UserModel.unfriendUser(userId, friendId);
+      return handleResponse(res, 200, "success", "Successfully unfriended user.");
+    } catch (error) {
+      console.error("Error unfriending user:", error);
+      return handleResponse(res, 500, "error", "Internal server error.");
+    }
+  }
 }
 
 export default UserController;
