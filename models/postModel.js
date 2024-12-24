@@ -210,50 +210,60 @@ class Post {
     limit = 4
   ) {
     console.log(page, limit, "page, limit");
+
     try {
-      // Lấy tất cả các bài viết từ Firebase
       const postsSnapshot = await db
         .ref("posts")
         .orderByChild("createdAt")
         .once("value");
       const posts = postsSnapshot.val() || {};
-      const infoPost = {};
 
-      // Lấy danh sách bạn bè của người dùng
       const friendsList = await UserModel.getFriendsList(userId);
 
-      // Chuyển đổi object posts thành mảng và sắp xếp theo thời gian tạo (mới nhất trước)
       const sortedPosts = Object.entries(posts).sort(
         (a, b) => b[1].createdAt - a[1].createdAt
       );
 
-      // Tính toán vị trí bắt đầu và kết thúc cho phân trang
       const start = (page - 1) * limit;
       const end = start + limit;
 
-      // Lọc các bài viết đã fetch trước đó
-      const newPosts = sortedPosts.filter(
-        ([postId]) => !fetchedPostIdsFromClient.includes(postId)
-      );
+      const infoPost = {};
 
-      // Duyệt qua các bài viết mới trong phạm vi phân trang
-      for (let i = start; i < end && i < newPosts.length; i++) {
-        const [postId, post] = newPosts[i];
-        console.log(post, "post ne");
-        // Kiểm tra quyền riêng tư bài viết
+      const countReplies = async (replyIds) => {
+        if (!replyIds || replyIds.length === 0) return 0;
+
+        const replies = await Promise.all(
+          replyIds.map(async (replyId) => {
+            const replySnapshot = await db
+              .ref(`replies/${replyId}`)
+              .once("value");
+            const reply = replySnapshot.val();
+            if (reply) {
+              const nestedReplies = await countReplies(reply.replies || []);
+              return nestedReplies + 1;
+            }
+            return 0;
+          })
+        );
+
+        return replies.reduce((total, count) => total + count, 0);
+      };
+
+      for (let i = start; i < end && i < sortedPosts.length; i++) {
+        const [postId, post] = sortedPosts[i];
+
         if (
-          post.privacy == "public" ||
-          (post.privacy == "friends" &&
-            (friendsList.includes(post.idUser) || post.idUser == userId)) ||
-          (post.privacy == "private" && post.idUser == userId)
+          !fetchedPostIdsFromClient.includes(postId) && // Chỉ lấy bài viết chưa tải
+          (post.privacy === "public" ||
+            (post.privacy === "friends" &&
+              (friendsList.includes(post.idUser) || post.idUser === userId)) ||
+            (post.privacy === "private" && post.idUser === userId))
         ) {
-          console.log(post, "hehehehehhehehehin");
           const groupedLikes = {};
           const infoUserList = {};
           let commentCount = 0;
           let replyCount = 0;
 
-          // Xử lý thông tin lượt thích (like) theo emoji
           if (post.likedBy) {
             for (const [userId, emoji] of Object.entries(post.likedBy)) {
               if (!groupedLikes[emoji]) groupedLikes[emoji] = [];
@@ -261,54 +271,26 @@ class Post {
             }
           }
 
-          // Lấy thông tin người dùng của bài viết
           if (post.idUser) {
             const [user] = await UserModel.getInfoByIdUser(post.idUser);
             infoUserList[post.idUser] = { id: post.idUser, ...user[0] };
           }
 
-          // Hàm đệ quy để đếm số lượng phản hồi (replies)
-          const countReplies = async (replyIds) => {
-            if (!replyIds || replyIds.length === 0) return 0;
-
-            const replies = await Promise.all(
-              replyIds.map(async (replyId) => {
-                const replySnapshot = await db
-                  .ref(`replies/${replyId}`)
-                  .once("value");
-                const reply = replySnapshot.val();
-                if (reply) {
-                  // Đệ quy để đếm các replies con của reply hiện tại
-                  const nestedReplies = await countReplies(reply.replies || []);
-                  return nestedReplies + 1; // Đếm reply hiện tại
-                }
-                return 0;
-              })
-            );
-
-            // Trả về tổng số reply
-            return replies.reduce((total, count) => total + count, 0);
-          };
-
-          // Đếm số lượng comment và reply của từng comment
           if (Array.isArray(post.comments)) {
-            commentCount = post.comments.length; // Số lượng bình luận
+            commentCount = post.comments.length;
 
-            // Đếm số lượng replies cho từng bình luận
             for (const commentId of post.comments) {
               const commentSnapshot = await db
                 .ref(`commentsList/${commentId}`)
                 .once("value");
               const comment = commentSnapshot.val();
               if (comment) {
-                // Đếm replies cho bình luận
                 const replies = await countReplies(comment.replies || []);
                 replyCount += replies;
               }
             }
           }
 
-          // Đưa dữ liệu vào infoPost
           infoPost[postId] = {
             post,
             groupedLikes,
@@ -318,17 +300,19 @@ class Post {
         }
       }
 
+      const hasMore = sortedPosts.length > end;
+
       console.log("Fetched posts", infoPost);
-      // Trả về infoPost chứa các bài viết hợp lệ đã phân trang
       return {
         posts: infoPost,
-        hasMore: newPosts.length > end,
+        hasMore,
       };
     } catch (error) {
       console.error("Error getting all posts:", error);
       throw error;
     }
   }
+
   static async getAllUserPostsAndShares(
     userId,
     fetchedPostIdsFromClient,

@@ -118,7 +118,7 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
         socket.emit("receivePosts", {
           posts: results.posts,
           page: page,
-          hasMore: results.hasMore,
+          hasMorePosts: results.hasMore,
         });
       } catch (error) {
         console.error("Error fetching posts:", error);
@@ -242,7 +242,7 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
         id: replyId,
         user: [user],
         ...newReplyData,
-        timestamp: Date.now(),
+        timestamp: Date.now(),  
       };
 
       io.emit("receiveReplyToComment", { commentId, newReply });
