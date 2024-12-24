@@ -209,6 +209,7 @@ class Post {
     page = 1,
     limit = 4
   ) {
+    console.log(page, limit, "page, limit");
     try {
       // Lấy tất cả các bài viết từ Firebase
       const postsSnapshot = await db
