@@ -219,6 +219,7 @@ class Post {
       const posts = postsSnapshot.val() || {};
 
       const friendsList = await UserModel.getFriendsList(userId);
+      const listIdFriends = friendsList.map((friend) => friend.idUser);
 
       const sortedPosts = Object.entries(posts).sort(
         (a, b) => b[1].createdAt - a[1].createdAt
@@ -251,12 +252,14 @@ class Post {
 
       for (let i = start; i < end && i < sortedPosts.length; i++) {
         const [postId, post] = sortedPosts[i];
-
+        console.log(post.idUser, userId, "sorted posts");
+        console.log(friendsList.includes(post.idUser), "friends vdv");
         if (
           !fetchedPostIdsFromClient.includes(postId) && // Chỉ lấy bài viết chưa tải
           (post.privacy === "public" ||
             (post.privacy === "friends" &&
-              (friendsList.includes(post.idUser) || post.idUser === userId)) ||
+              (listIdFriends.includes(post.idUser) ||
+                post.idUser === userId)) ||
             (post.privacy === "private" && post.idUser === userId))
         ) {
           const groupedLikes = {};
