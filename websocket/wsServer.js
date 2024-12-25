@@ -130,13 +130,14 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
   );
   socket.on(
     "getPostOfUser",
-    async (userId, fetchedPostIdsFromClient, limit, page) => {
+    async (userId, fetchedPostIdsFromClient, limit, page, isFriendRequest) => {
       try {
         const results = await Post.getAllUserPostsAndShares(
           userId,
           fetchedPostIdsFromClient,
           page,
-          limit
+          limit,
+          isFriendRequest
         );
         console.log(results.hasMore, "hasMore");
         socket.emit("receivePostsAndSharePostOfUser", {

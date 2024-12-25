@@ -317,7 +317,8 @@ class Post {
     userId,
     fetchedPostIdsFromClient,
     page = 1,
-    limit = 10
+    limit = 10,
+    isFriendRequest = false
   ) {
     try {
       // Lấy dữ liệu bài viết và bài chia sẻ song song
@@ -398,8 +399,12 @@ class Post {
           let replyCount = 0;
           const postIdUser = post.idUser || post.sharedBy;
 
-          // Chỉ lấy bài viết của chính người dùng
-          if (postIdUser != userId) return;
+          // Chỉ lấy bài viết của chính người dùng va quyen cong khai hoac ban be
+          if (
+            postIdUser != userId ||
+            (isFriendRequest && post.privacy == "private")
+          )
+            return;
           if (post.type === "share") {
             const [infoUser] = await UserModel.getInfoByIdUser(postIdUser);
             post.infoUser = infoUser[0];
