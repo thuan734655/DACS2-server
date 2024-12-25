@@ -164,7 +164,6 @@ class AuthController {
       const existingUser = await authService.findUserByEmail(email);
       if (existingUser) {
         return handleResponse(res, 409, false, "Email đã tồn tại");
-        return handleResponse(res, 409, false, "Email đã tồn tại");
       }
 
       const birthDate = new Date(`${year}-${month}-${day}`);

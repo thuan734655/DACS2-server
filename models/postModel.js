@@ -661,6 +661,7 @@ class Post {
         sharedAt: Date.now(),
         type: "profile",
         status: "active",
+        privacy: "public",
         sharedPostContent: {
           text: originalPost.text,
           mediaUrls: originalPost.mediaUrls || [],
