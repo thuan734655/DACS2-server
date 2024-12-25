@@ -400,7 +400,10 @@ class Post {
 
           // Chỉ lấy bài viết của chính người dùng
           if (postIdUser != userId) return;
-
+          if (post.type === "share") {
+            const [infoUser] = await UserModel.getInfoByIdUser(postIdUser);
+            post.infoUser = infoUser[0];
+          }
           // Xử lý lượt thích
           if (post.likedBy) {
             for (const [userId, emoji] of Object.entries(post.likedBy)) {
