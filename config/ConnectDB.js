@@ -4,9 +4,9 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const connectDB = mysql.createPool({
-  host: "42.96.4.215",
-  user: "dacs2",
-  password: "dacs2",
+  host: "localhost",
+  user: "root",
+  password: "",
   database: "dacs2",
   waitForConnections: true,
   connectionLimit: 100,

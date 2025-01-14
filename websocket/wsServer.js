@@ -555,6 +555,22 @@ const handleSocketEvents = (socket, io, onlineUsers) => {
       console.error("Error setting privacy for post:", error);
     }
   });
+  socket.on("SetPrivacyPost", async ({ postId, privacy, idUser }) => {
+    try {
+      const success = await Post.setPrivacyPost(postId, privacy);
+      onlineUsers.forEach((userId, socketId) => {
+        if (userId == idUser && userId) {
+          io.to(socketId).emit("responsePrivacySharedPost", {
+            postId,
+            privacy,
+            success,
+          });
+        }
+      });
+    } catch (error) {
+      console.error("Error setting privacy for post:", error);
+    }
+  });
   socket.on("setContentPost", async ({ postId, text, idUser }) => {
     try {
       const resultUpdate = await Post.setContentPost(postId, text);

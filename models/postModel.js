@@ -934,6 +934,16 @@ class Post {
       return false;
     }
   }
+  static async setPrivacySharedPost(postId, privacy) {
+    try {
+      (await db.ref(`shares-post/${postId}`).once("value")).val();
+      await db.ref(`shares-post/${postId}`).update({ privacy });
+      return true;
+    } catch (error) {
+      console.error("Error in setPrivacy:", error);
+      return false;
+    }
+  }
   static async setContentPost(postId, text) {
     try {
       (await db.ref(`posts/${postId}`).once("value")).val();
